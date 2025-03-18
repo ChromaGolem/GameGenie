@@ -2,25 +2,24 @@
   "name": "com.chromagolem.gamegenie",
   "version": "1.0.0",
   "displayName": "Game Genie",
-  "description": "AI-Powered Unity Scene Editor using Claude AI",
-  "unity": "2020.3",
+  "description": "AI-powered Unity scene editor using Claude and MCP",
+  "unity": "2022.3",
   "documentationUrl": "https://github.com/ChromaGolem/GameGenie",
   "changelogUrl": "https://github.com/ChromaGolem/GameGenie/blob/main/CHANGELOG.md",
   "licensesUrl": "https://github.com/ChromaGolem/GameGenie/blob/main/LICENSE",
   "dependencies": {
-    "com.unity.nuget.newtonsoft-json": "3.0.2"
+    "com.unity.nuget.newtonsoft-json": "3.2.1",
+    "com.unity.textmeshpro": "3.0.6"
   },
   "keywords": [
     "ai",
-    "claude",
     "editor",
-    "tool",
-    "scene",
-    "generation"
+    "claude",
+    "mcp"
   ],
   "author": {
     "name": "ChromaGolem",
-    "email": "info@chromagolem.com",
-    "url": "https://github.com/ChromaGolem"
+    "email": "",
+    "url": ""
   }
 }

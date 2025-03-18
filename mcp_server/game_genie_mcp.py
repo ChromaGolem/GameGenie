@@ -22,6 +22,17 @@ logging.basicConfig(
 )
 logger = logging.getLogger("GenieMCPServer")
 
+# HOST and PORT
+HOST = "localhost"
+PORT = 6076
+
+
+# message classe
+class UnityMessage:
+    def __init__(self, command: str, params: Dict[str, Any]):
+        self.command = command
+        self.params = params
+
 
 @dataclass
 class UnityConnection:
@@ -206,6 +217,13 @@ async def server_lifespan(server: FastMCP) -> AsyncIterator[Dict[str, Any]]:
         logger.info("UnityMCP server shut down")
 
 
+# Create the MCP server with lifespan support
+mcp = FastMCP(
+    "UnityMCP",
+    description="Unity integration through the Model Context Protocol",
+    lifespan=server_lifespan,
+)
+
 # Resource endpoints
 
 # Global connection for resources (since resources can't access context)
@@ -238,7 +256,7 @@ def get_unity_connection():
 
     # Create a new connection if needed
     if _unity_connection is None:
-        _unity_connection = UnityConnection(host="localhost", port=9876)
+        _unity_connection = UnityConnection(host=HOST, port=PORT)
         if not _unity_connection.connect():
             logger.error("Failed to connect to Unity")
             _unity_connection = None
@@ -263,8 +281,9 @@ async def get_scene_context() -> str:
     try:
         # get the global connection
         unity = get_unity_connection()
+        message = UnityMessage("get_scene_context", {})
 
-        result = unity.send_command("get_scene_context")
+        result = unity.send_command(message)
         return f"Scene context extracted successfully: {result.get('result', '')}"
     except Exception as e:
         logger.error(f"Error extracting scene context: {str(e)}")
@@ -287,8 +306,8 @@ async def execute_unity_code(code: str) -> str:
     try:
         # get the global connection
         unity = get_unity_connection()
-
-        result = unity.send_command("execute_unity_code", {"code": code})
+        message = UnityMessage("execute_unity_code", {"code": code})
+        result = unity.send_command(message)
         return f"Code executed successfully: {result.get('result', '')}"
     except Exception as e:
         logger.error(f"Error executing code: {str(e)}")

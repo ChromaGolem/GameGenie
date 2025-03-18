@@ -20,6 +20,31 @@ namespace GameGenie
             "EditorApplication.Exit"
         };
         
+        private static readonly Regex CodeBlockRegex = new Regex(@"```csharp\s*(.*?)\s*```", RegexOptions.Singleline);
+        private static readonly Regex WarningRegex = new Regex(@"⚠️\s*(.*?)(?:\n|$)", RegexOptions.Singleline);
+        
+        public static (string code, string warning) ExtractCode(string response)
+        {
+            string code = "";
+            string warning = "";
+            
+            // Extract code block
+            var codeMatch = CodeBlockRegex.Match(response);
+            if (codeMatch.Success)
+            {
+                code = codeMatch.Groups[1].Value.Trim();
+            }
+            
+            // Extract warning if present
+            var warningMatch = WarningRegex.Match(response);
+            if (warningMatch.Success)
+            {
+                warning = warningMatch.Groups[1].Value.Trim();
+            }
+            
+            return (code, warning);
+        }
+        
         public static string ExtractCodeBlocks(string text)
         {
             // Regular expression to match code blocks between ```csharp and ```
