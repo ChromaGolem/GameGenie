@@ -1,0 +1,22 @@
+[project]
+name = "game-genie-mcp"
+version = "0.1.0"
+description = "MCP server that exposes Unity functions to the LLM"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "mcp[cli]>=1.4.1",
+]
+
+[project.scripts]
+game_genie_mcp = "game_genie_mcp.server:main"
+
+[project.entry-points.mcp]
+"game_genie_mcp" = "game_genie_mcp.server:mcp"
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
