@@ -7,6 +7,12 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Collections.Concurrent;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+
+#if UNITY_EDITOR
+using GameGenieUnity;
+#endif
 
 public class WebSocketEditorWindow : EditorWindow
 {
@@ -21,6 +27,12 @@ public class WebSocketEditorWindow : EditorWindow
     private CancellationTokenSource cancellationTokenSource;
     private readonly ConcurrentQueue<string> messageQueue = new ConcurrentQueue<string>();
     private bool isProcessingMessages = false;
+
+    public class GameGenieCommand
+    {
+        public string command { get; set; }
+        public JObject @params { get; set; }
+    }
 
     [MenuItem("Window/WebSocket Test Window")]
     public static void ShowWindow()
@@ -161,6 +173,47 @@ public class WebSocketEditorWindow : EditorWindow
 
                 var message = Encoding.UTF8.GetString(buffer, 0, result.Count);
                 messageQueue.Enqueue($"Received: {message}");
+
+                // Parse the message as JSON
+                try
+                {
+                    var json = JsonConvert.DeserializeObject<GameGenieCommand>(message);
+                    // get the "command" from the json
+                    string command = json.command;
+
+                    switch (command)
+                    {
+                        case "execute_unity_code_in_editor":
+                            // execute the code
+                            // TODO: return information about the execution
+                            string code = json.@params["code"]?.ToString() ?? "";
+                            Debug.Log("Executing code in editor: " + code);
+                            GameGenieUnity.CodeExecutionService.ExecuteInEditor(code);
+                            break;
+
+                        case "add_script_to_project":
+                            // add the script to the project
+                            // TODO: implement script addition
+                            string relativePath = json.@params["relativePath"]?.ToString() ?? "";
+                            string sourceCode = json.@params["sourceCode"]?.ToString() ?? "";
+                            GameGenieUnity.CodeExecutionService.AddScriptToProject(relativePath, sourceCode);
+                            break;
+
+                            /*
+                                case "get_scene_context":
+                                    // get the scene context
+                                    // TODO: implement scene context extractions
+                                    string sceneContext = SceneContext.GetSceneContext();
+                                    messageQueue.Enqueue($"Scene context: {sceneContext}");
+                                    break;
+                            */
+
+                    }
+                }
+                catch (Exception e)
+                {
+                    AddToLog($"Error parsing message: {e.Message}");
+                }
             }
         }
         catch (Exception e)

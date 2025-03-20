@@ -1,0 +1,8 @@
+{
+    "name": "GameGenie.Editor",
+    "references": [
+        "GameGenie.Runtime"
+    ],
+    "autoReferenced": true,
+    "includePlatforms": ["Editor"]
+}
