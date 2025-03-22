@@ -101,6 +101,9 @@ public class WebSocketEditorWindow : EditorWindow
 
         // Process any queued messages
         ProcessQueuedMessages();
+        
+        // Monitor WebSocket state
+        MonitorWebSocketState();
     }
 
     async void ConnectToServer()
@@ -159,61 +162,120 @@ public class WebSocketEditorWindow : EditorWindow
 
     async Task ReceiveMessagesAsync()
     {
-        var buffer = new byte[1024];
+        // Use a larger buffer
+        var buffer = new byte[8192];
+        var messageBuffer = new List<byte>();
+        
         try
         {
             while (websocket.State == WebSocketState.Open && !cancellationTokenSource.Token.IsCancellationRequested)
             {
-                var result = await websocket.ReceiveAsync(new ArraySegment<byte>(buffer), cancellationTokenSource.Token);
-                if (result.MessageType == WebSocketMessageType.Close)
+                WebSocketReceiveResult result;
+                do
                 {
-                    await websocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closing", cancellationTokenSource.Token);
-                    break;
-                }
-
-                var message = Encoding.UTF8.GetString(buffer, 0, result.Count);
-                messageQueue.Enqueue($"Received: {message}");
-
-                // Parse the message as JSON
+                    // Receive a message fragment
+                    result = await websocket.ReceiveAsync(new ArraySegment<byte>(buffer), cancellationTokenSource.Token);
+                    
+                    if (result.MessageType == WebSocketMessageType.Close)
+                    {
+                        await websocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closing", cancellationTokenSource.Token);
+                        return;
+                    }
+                    
+                    // Add the fragment to our message buffer
+                    messageBuffer.AddRange(new ArraySegment<byte>(buffer, 0, result.Count));
+                    
+                    // Continue until we have the complete message
+                } while (!result.EndOfMessage);
+                
+                // Now we have the complete message
+                var completeMessage = Encoding.UTF8.GetString(messageBuffer.ToArray());
+                messageQueue.Enqueue($"Received: {completeMessage}");
+                
+                // Process the complete message
                 try
                 {
-                    var json = JsonConvert.DeserializeObject<GameGenieCommand>(message);
-                    // get the "command" from the json
+                    var json = JsonConvert.DeserializeObject<GameGenieCommand>(completeMessage);
                     string command = json.command;
+                    // Get the message ID for the response
+                    string messageId = json.@params["message_id"]?.ToString() ?? "";
 
                     switch (command)
                     {
                         case "execute_unity_code_in_editor":
-                            // execute the code
-                            // TODO: return information about the execution
                             string code = json.@params["code"]?.ToString() ?? "";
                             Debug.Log("Executing code in editor: " + code);
-                            GameGenieUnity.CodeExecutionService.ExecuteInEditor(code);
+                            
+                            try {
+                                // Execute the code
+                                var executionResult = GameGenieUnity.CodeExecutionService.ExecuteInEditor(code);
+                                
+                                // Send response with the same message ID
+                                string response = JsonConvert.SerializeObject(new {
+                                    type = "response",
+                                    command = "execute_unity_code_in_editor",
+                                    message_id = messageId,
+                                    data = new {
+                                        success = true,
+                                        result = executionResult
+                                    }
+                                });
+                                await SendRawMessage(response);
+                            } catch (Exception ex) {
+                                // Send error response
+                                string errorResponse = JsonConvert.SerializeObject(new {
+                                    type = "response",
+                                    command = "execute_unity_code_in_editor",
+                                    message_id = messageId,
+                                    data = new {
+                                        success = false,
+                                        error = ex.Message
+                                    }
+                                });
+                                await SendRawMessage(errorResponse);
+                            }
                             break;
 
-                        case "add_script_to_project":
-                            // add the script to the project
-                            // TODO: implement script addition
-                            string relativePath = json.@params["relativePath"]?.ToString() ?? "";
-                            string sourceCode = json.@params["sourceCode"]?.ToString() ?? "";
-                            GameGenieUnity.CodeExecutionService.AddScriptToProject(relativePath, sourceCode);
+                        case "get_scene_context":
+                            try {
+                                // This would be implemented by your SceneContext class
+                                // For now just sending a placeholder response
+                                string sceneContextJson = "{\"placeholder\":\"scene context would go here\"}";
+                                
+                                string response = JsonConvert.SerializeObject(new {
+                                    type = "response",
+                                    command = "get_scene_context",
+                                    message_id = messageId,
+                                    data = new {
+                                        success = true,
+                                        context = sceneContextJson
+                                    }
+                                });
+                                await SendRawMessage(response);
+                            } catch (Exception ex) {
+                                string errorResponse = JsonConvert.SerializeObject(new {
+                                    type = "response",
+                                    command = "get_scene_context",
+                                    message_id = messageId,
+                                    data = new {
+                                        success = false,
+                                        error = ex.Message
+                                    }
+                                });
+                                await SendRawMessage(errorResponse);
+                            }
                             break;
-
-                            /*
-                                case "get_scene_context":
-                                    // get the scene context
-                                    // TODO: implement scene context extractions
-                                    string sceneContext = SceneContext.GetSceneContext();
-                                    messageQueue.Enqueue($"Scene context: {sceneContext}");
-                                    break;
-                            */
-
+                            
+                        // Add other command handlers here
                     }
                 }
                 catch (Exception e)
                 {
                     AddToLog($"Error parsing message: {e.Message}");
                 }
+                
+                // Clear the buffer for the next message
+                messageBuffer.Clear();
             }
         }
         catch (Exception e)
@@ -270,10 +332,9 @@ public class WebSocketEditorWindow : EditorWindow
 
     void AddToLog(string message)
     {
-        // Add the message to the log list
         messageLog.Add(message);
         Debug.Log(message);
-        Repaint();
+        WriteToLogFile(message);
     }
 
     void OnDestroy()
@@ -294,6 +355,50 @@ public class WebSocketEditorWindow : EditorWindow
         }
         catch (Exception e) {
             AddToLog($"Error sending handshake: {e.Message}");
+        }
+    }
+
+    // Add a helper method for sending raw messages
+    async Task SendRawMessage(string jsonMessage)
+    {
+        if (websocket.State != WebSocketState.Open)
+        {
+            AddToLog("Cannot send message: WebSocket is not connected");
+            return;
+        }
+
+        try
+        {
+            AddToLog($"Sending message: {jsonMessage}");
+            var messageBytes = Encoding.UTF8.GetBytes(jsonMessage);
+            await websocket.SendAsync(new ArraySegment<byte>(messageBytes), WebSocketMessageType.Text, true, cancellationTokenSource.Token);
+        }
+        catch (Exception e)
+        {
+            AddToLog($"Error sending message: {e.Message}");
+        }
+    }
+
+    // Add this method to track state changes
+    void MonitorWebSocketState()
+    {
+        if (websocket != null && websocket.State != WebSocketState.Open && isConnected)
+        {
+            AddToLog($"WebSocket state changed to: {websocket.State}");
+            if (websocket.State == WebSocketState.Closed || websocket.State == WebSocketState.Aborted)
+            {
+                isConnected = false;
+                AddToLog("Connection was lost. You may need to reconnect.");
+            }
+        }
+    }
+
+    private void WriteToLogFile(string message)
+    {
+        string logPath = System.IO.Path.Combine(Application.persistentDataPath, "websocket_log.txt");
+        using (System.IO.StreamWriter writer = System.IO.File.AppendText(logPath))
+        {
+            writer.WriteLine($"{DateTime.Now}: {message}");
         }
     }
 } 
