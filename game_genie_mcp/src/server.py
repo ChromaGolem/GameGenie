@@ -16,6 +16,8 @@ from enum import Enum
 import websockets
 import json
 import sys
+import asyncio
+import time
 
 # Configure logging
 logging.basicConfig(
@@ -52,6 +54,8 @@ class GameGenieWebSocketServer:
         self.connected_clients = set()
         self._running = False
         self.unity_client = None
+        # Add a simple response queue
+        self.response_queue = asyncio.Queue()
 
     async def start(self):
         try:
@@ -111,6 +115,11 @@ class GameGenieWebSocketServer:
                         if parsed_message.get("client") == "Unity":
                             logger.info(f"Unity client connected")
                             self.unity_client = websocket
+                        # Check if this is a response message
+                        elif parsed_message.get("type") == "response":
+                            # Put the response in the queue for tool functions to consume
+                            await self.response_queue.put(parsed_message)
+                            logger.info(f"Added response to queue: {parsed_message.get('command', 'unknown')}")
                         
                     except json.JSONDecodeError as json_err:
                         logger.error(f"JSON decode error: {str(json_err)}")
@@ -129,21 +138,56 @@ class GameGenieWebSocketServer:
             self.connected_clients.remove(websocket)
             logger.info(f"Client {client_id} removed from active connections")
 
-    # Send a message to the Unity editor
-    # this is how the MCP communicates with the Unity editor and other applications
+    # Modify send_command_to_unity to include a message ID
     async def send_command_to_unity(self, command: str, params: Dict[str, Any]) -> str:
         if not self.unity_client:
             return "no Unity client connected"
         
-        message = json.dumps({"command": command, "params": params})
+        message_id = str(uuid.uuid4())
+        params["message_id"] = message_id
         
-        # Send to all connected clients
+        message = json.dumps({
+            "command": command, 
+            "params": params,
+            "message_id": message_id
+        })
+        
+        # Send to Unity client
         try:
             await self.unity_client.send(message)
+            logger.info(f"Sent command {command} with ID {message_id} to Unity")
+            return message_id
         except Exception as e:
             logger.error(f"Error sending to Unity client: {str(e)}")
+            return f"Error: {str(e)}"
+
+    # Add a method to wait for a specific response
+    async def wait_for_response(self, message_id: str, timeout: int = 30) -> Dict[str, Any]:
+        """Wait for a response from Unity matching the given message ID"""
+        start_time = time.time()
         
-        return f"Message sent to {len(self.connected_clients)} clients"
+        while (time.time() - start_time) < timeout:
+            # Check if there's any response in the queue
+            try:
+                # Use wait_for to implement timeout
+                response = await asyncio.wait_for(self.response_queue.get(), timeout=1.0)
+                
+                # Check if this response matches our message ID
+                if response.get("message_id") == message_id:
+                    logger.info(f"Found matching response for message ID {message_id}")
+                    return response
+                else:
+                    # Put it back in the queue for other waiters
+                    await self.response_queue.put(response)
+                    # Small sleep to prevent tight loop
+                    await asyncio.sleep(0.1)
+            except asyncio.TimeoutError:
+                # Just continue the loop if we timeout waiting for the queue
+                continue
+        
+        # If we get here, we've timed out
+        logger.error(f"Timeout waiting for response to message ID {message_id}")
+        return {"error": f"Timeout waiting for response after {timeout} seconds"}
         
 # currently just use this to stop the server when the MCP shuts down
 @asynccontextmanager
@@ -209,10 +253,18 @@ async def get_scene_context() -> str:
     logger.info("Extracting scene context from Unity...")
 
     try:
-        # get the current scene context
-        result = await server.send_command_to_unity(UnityTools.GET_SCENE_CONTEXT, {})
-
-        return f"Scene context extracted successfully: {result}"
+        # Send command and get message ID
+        message_id = await server.send_command_to_unity(UnityTools.GET_SCENE_CONTEXT, {})
+        
+        # Wait for the response
+        response = await server.wait_for_response(message_id)
+        
+        # Check for errors
+        if "error" in response:
+            return f"Error getting scene context: {response['error']}"
+        
+        # Return the response data
+        return f"Scene context extracted successfully: {json.dumps(response.get('data', {}))}"
     except Exception as e:
         logger.error(f"Error extracting scene context: {str(e)}")
         return f"Error extracting scene context: {str(e)}"
@@ -232,11 +284,19 @@ async def execute_unity_code(code: str) -> str:
     logger.info(f"Executing code in Unity (length: {len(code)})...")
 
     try:
-        # TODO: execute the code in Unity
-        result = await server.send_command_to_unity(UnityTools.EXECUTE_UNITY_CODE, {"code": code})
-        # Return the successful result
+        # Send the code with a message ID
+        message_id = await server.send_command_to_unity(UnityTools.EXECUTE_UNITY_CODE, {"code": code})
+        
+        # Wait for the response
+        response = await server.wait_for_response(message_id)
+        
+        # Check for errors
+        if "error" in response:
+            return f"Error executing code: {response['error']}"
+        
+        # Return successful result
         logger.info(f"Unity code execution successful")
-        return f"Code executed successfully: {result}"
+        return f"Code executed successfully: {json.dumps(response.get('data', {}))}"
     except Exception as e:
         logger.error(f"Error executing code: {str(e)}")
         return f"Error executing code: {str(e)}"
