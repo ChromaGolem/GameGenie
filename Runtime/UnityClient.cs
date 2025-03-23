@@ -30,16 +30,16 @@ namespace GameGenieUnity
         public JObject @params { get; set; }
     }
 
-    public class UnityClient : MonoBehaviour
+    public static class UnityClient
     {
-        private ClientWebSocket websocket;
+        private static ClientWebSocket websocket;
         public static bool isConnected = false;
         public static ClientConfig clientConfig = new ClientConfig{serverHost = "localhost", serverPort = 6076};
-        private CancellationTokenSource cancellationTokenSource;
-        private readonly ConcurrentQueue<string> messageQueue = new ConcurrentQueue<string>();
-        private bool isProcessingMessages = false;
+        private static CancellationTokenSource cancellationTokenSource;
+        private static readonly ConcurrentQueue<string> messageQueue = new ConcurrentQueue<string>();
+        private static bool isProcessingMessages = false;
 
-        public async void ConnectToServer()
+        public static async void ConnectToServer()
         {
             try
             {
@@ -93,7 +93,7 @@ namespace GameGenieUnity
             }
         }
 
-        private async Task ReceiveMessagesAsync()
+        private static async Task ReceiveMessagesAsync()
         {
             // Use a larger buffer
             var buffer = new byte[8192];
@@ -182,7 +182,7 @@ namespace GameGenieUnity
                                 {
                                     // This would be implemented by your SceneContext class
                                     // For now just sending a placeholder response
-                                    string sceneContextJson = "{\"placeholder\":\"scene context would go here\"}";
+                                    object sceneContextJson = SceneContextService.GetSceneContext();
 
                                     string response = JsonConvert.SerializeObject(new
                                     {
@@ -235,7 +235,7 @@ namespace GameGenieUnity
             }
         }
 
-        public async void SendMessage(string message)
+        public static async void SendUserMessage(string message)
         {
             if (websocket.State != WebSocketState.Open)
             {
@@ -254,7 +254,7 @@ namespace GameGenieUnity
             }
         }
 
-        public void DisconnectFromServer()
+        public static void DisconnectFromServer()
         {
             if (websocket != null && websocket.State == WebSocketState.Open)
             {
@@ -272,7 +272,7 @@ namespace GameGenieUnity
             cancellationTokenSource?.Dispose();
         }
 
-        public void ProcessQueuedMessages()
+        public static void ProcessQueuedMessages()
         {
             if (isProcessingMessages) return;
             isProcessingMessages = true;
@@ -286,7 +286,7 @@ namespace GameGenieUnity
         }
 
         // Send an initial handshake message
-        private async Task SendHandshakeMessage()
+        private static async Task SendHandshakeMessage()
         {
             try
             {
@@ -303,7 +303,7 @@ namespace GameGenieUnity
         }
 
         // Add a helper method for sending raw messages
-        private async Task SendRawMessage(string jsonMessage)
+        private static async Task SendRawMessage(string jsonMessage)
         {
             if (websocket.State != WebSocketState.Open)
             {
@@ -324,7 +324,7 @@ namespace GameGenieUnity
         }
 
         // Add this method to track state changes
-        public void MonitorWebSocketState()
+        public static void MonitorWebSocketState()
         {
             if (websocket != null && websocket.State != WebSocketState.Open && isConnected)
             {
