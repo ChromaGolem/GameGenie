@@ -43,6 +43,13 @@ namespace GameGenieUnity
         {
             try
             {
+                // If already connected or connecting, disconnect first
+                if (websocket != null && (websocket.State == WebSocketState.Open || 
+                                         websocket.State == WebSocketState.Connecting))
+                {
+                    DisconnectFromServer();
+                }
+                
                 Logger.AddToLog($"Attempting to connect to {clientConfig.serverHost}:{clientConfig.serverPort}...");
 
                 // Create a new WebSocket with detailed diagnostics
@@ -90,6 +97,11 @@ namespace GameGenieUnity
                 }
 
                 isConnected = false;
+
+                // Add auto-reconnect logic
+                Logger.AddToLog("Will attempt to reconnect in 5 seconds...");
+                await Task.Delay(5000);
+                ConnectToServer();
             }
         }
 
@@ -243,6 +255,39 @@ namespace GameGenieUnity
                                             success = false,
                                             error = ex.Message
                                         }
+                                    });
+                                    await SendRawMessage(errorResponse);
+                                }
+                                break;
+
+                            case "add_script_to_project":
+                                try
+                                {
+                                    string relativePath = json.@params["relative_path"]?.ToString() ?? "";
+                                    string sourceCode = json.@params["source_code"]?.ToString() ?? "";
+                                    
+                                    // Send response BEFORE adding the script
+                                    string response = JsonConvert.SerializeObject(new
+                                    {
+                                        type = "response",
+                                        command = "add_script_to_project",
+                                        message_id = messageId,
+                                        data = new { success = true, result = "Script will be added to project at: " + relativePath }
+                                    });
+
+                                    // Now add the script
+                                    GameGenieUnity.CodeExecutionService.AddScriptToProject(relativePath, sourceCode);
+
+                                    await SendRawMessage(response);
+                                }
+                                catch (Exception ex)
+                                {
+                                    string errorResponse = JsonConvert.SerializeObject(new
+                                    {
+                                        type = "response",
+                                        command = "add_script_to_project",
+                                        message_id = messageId,
+                                        data = new { success = false, error = ex.Message }
                                     });
                                     await SendRawMessage(errorResponse);
                                 }
