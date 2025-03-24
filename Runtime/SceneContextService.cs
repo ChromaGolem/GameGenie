@@ -25,6 +25,14 @@ namespace GameGenieUnity
             return sceneContent;
         }
 
+        public static string ReadFile(string relativePath)
+        {
+            string fullPath = Path.Combine(Application.dataPath, relativePath);
+            string[] contents = File.ReadAllLines(fullPath);
+            string fileContent = string.Join("\n", contents);
+            return fileContent;
+        }
+
         public static object GetSceneContext()
         {
             try

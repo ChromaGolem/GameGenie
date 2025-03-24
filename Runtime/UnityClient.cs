@@ -140,159 +140,9 @@ namespace GameGenieUnity
                     // Process the complete message
                     try
                     {
-                        var json = JsonConvert.DeserializeObject<GameGenieCommand>(completeMessage);
-                        string command = json.command;
-                        // Get the message ID for the response
-                        string messageId = json.@params["message_id"]?.ToString() ?? "";
 
-                        // MCP Tools
-                        switch (command)
-                        {
-                            case "execute_unity_code_in_editor":
-                                string code = json.@params["code"]?.ToString() ?? "";
-                                Debug.Log("Executing code in editor: " + code);
+                        HelperService.MCPSWITCH(completeMessage);
 
-                                try
-                                {
-                                    // Execute the code
-                                    var executionResult = GameGenieUnity.CodeExecutionService.ExecuteInEditor(code);
-
-                                    // Send response with the same message ID
-                                    string response = JsonConvert.SerializeObject(new
-                                    {
-                                        type = "response",
-                                        command = "execute_unity_code_in_editor",
-                                        message_id = messageId,
-                                        data = new
-                                        {
-                                            success = true,
-                                            result = executionResult
-                                        }
-                                    });
-                                    await SendRawMessage(response);
-                                }
-                                catch (Exception ex)
-                                {
-                                    // Send error response
-                                    string errorResponse = JsonConvert.SerializeObject(new
-                                    {
-                                        type = "response",
-                                        command = "execute_unity_code_in_editor",
-                                        message_id = messageId,
-                                        data = new
-                                        {
-                                            success = false,
-                                            error = ex.Message
-                                        }
-                                    });
-                                    await SendRawMessage(errorResponse);
-                                }
-                                break;
-
-                            case "get_scene_context":
-                                try
-                                {
-                                    // This would be implemented by your SceneContext class
-                                    // For now just sending a placeholder response
-                                    object sceneContextJson = SceneContextService.GetSceneContext();
-
-                                    string response = JsonConvert.SerializeObject(new
-                                    {
-                                        type = "response",
-                                        command = "get_scene_context",
-                                        message_id = messageId,
-                                        data = new
-                                        {
-                                            success = true,
-                                            context = sceneContextJson
-                                        }
-                                    });
-                                    await SendRawMessage(response);
-                                }
-                                catch (Exception ex)
-                                {
-                                    string errorResponse = JsonConvert.SerializeObject(new
-                                    {
-                                        type = "response",
-                                        command = "get_scene_context",
-                                        message_id = messageId,
-                                        data = new
-                                        {
-                                            success = false,
-                                            error = ex.Message
-                                        }
-                                    });
-                                    await SendRawMessage(errorResponse);
-                                }
-                                break;
-
-                            case "get_scene_file":
-                                try
-                                {
-                                    string sceneFile = SceneContextService.GetSceneFile();
-                                    string response = JsonConvert.SerializeObject(new
-                                    {
-                                        type = "response",
-                                        command = "get_scene_file",
-                                        message_id = messageId,
-                                        data = new
-                                        {
-                                            success = true,
-                                            sceneFile = sceneFile
-                                        }
-                                    });
-                                    await SendRawMessage(response);
-                                }
-                                catch (Exception ex)
-                                {
-                                    string errorResponse = JsonConvert.SerializeObject(new
-                                    {
-                                        type = "response",
-                                        command = "get_scene_file",
-                                        message_id = messageId,
-                                        data = new
-                                        {
-                                            success = false,
-                                            error = ex.Message
-                                        }
-                                    });
-                                    await SendRawMessage(errorResponse);
-                                }
-                                break;
-
-                            case "add_script_to_project":
-                                try
-                                {
-                                    string relativePath = json.@params["relative_path"]?.ToString() ?? "";
-                                    string sourceCode = json.@params["source_code"]?.ToString() ?? "";
-                                    
-                                    // Send response BEFORE adding the script
-                                    string response = JsonConvert.SerializeObject(new
-                                    {
-                                        type = "response",
-                                        command = "add_script_to_project",
-                                        message_id = messageId,
-                                        data = new { success = true, result = "Script will be added to project at: " + relativePath }
-                                    });
-
-                                    // Now add the script
-                                    GameGenieUnity.CodeExecutionService.AddScriptToProject(relativePath, sourceCode);
-
-                                    await SendRawMessage(response);
-                                }
-                                catch (Exception ex)
-                                {
-                                    string errorResponse = JsonConvert.SerializeObject(new
-                                    {
-                                        type = "response",
-                                        command = "add_script_to_project",
-                                        message_id = messageId,
-                                        data = new { success = false, error = ex.Message }
-                                    });
-                                    await SendRawMessage(errorResponse);
-                                }
-                                break;
-                        }
                     }
                     catch (Exception e)
                     {
@@ -380,7 +230,7 @@ namespace GameGenieUnity
         }
 
         // Add a helper method for sending raw messages
-        private static async Task SendRawMessage(string jsonMessage)
+        public static async Task SendRawMessage(string jsonMessage)
         {
             if (websocket.State != WebSocketState.Open)
             {

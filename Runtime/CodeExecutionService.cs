@@ -130,5 +130,38 @@ public static class EditorCodeWrapper {
         }
 #endif
         }
+
+        public static string EditExistingScript(string relativePath, string newSourceCode)
+        {
+#if UNITY_EDITOR
+            try
+            {
+                // Remove "Assets/" from the relative path (if it's there) and combine with Application.dataPath to get a full path
+                string relativeSubPath = relativePath.StartsWith("Assets/") ? relativePath.Substring("Assets/".Length) : relativePath;
+                string fullPath = Path.Combine(Application.dataPath, relativeSubPath);
+
+                // Check if the file exists
+                if (!File.Exists(fullPath))
+                {
+                    Debug.LogError("Script to edit does not exist at: " + fullPath + " use add_script_to_project to create a new script");
+                    return $"Error editing script: Script to edit does not exist at: {fullPath} use add_script_to_project to create a new script";
+                }
+
+                // Write the source code to the file
+                // this should automatically overwrite the existing file
+                File.WriteAllText(fullPath, newSourceCode);
+
+                // Finally, import the new asset into Unity
+                AssetDatabase.ImportAsset(relativePath, ImportAssetOptions.ForceUpdate);
+                Debug.Log("Script edited in project at: " + relativePath);
+                return "Script edited in project at: " + relativePath;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"Error editing script: {ex.Message}\n{ex.StackTrace}");
+                return $"Error editing script: {ex.Message}\n{ex.StackTrace}";
+            }
+#endif
+        }
     }
 }
