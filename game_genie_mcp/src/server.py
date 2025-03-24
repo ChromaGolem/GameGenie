@@ -38,6 +38,7 @@ class ConnectionEnum(str, Enum):
 # List of tools that the Unity editor can call
 class UnityTools(str, Enum):
     GET_SCENE_CONTEXT = "get_scene_context"
+    GET_SCENE_FILE = "get_scene_file"
     EXECUTE_UNITY_CODE = "execute_unity_code_in_editor"
     ADD_SCRIPT_TO_PROJECT = "add_script_to_project"
 
@@ -259,16 +260,35 @@ async def get_scene_context() -> str:
         # Wait for the response
         response = await server.wait_for_response(message_id)
         
-        # Check for errors
-        if "error" in response:
-            return f"Error getting scene context: {response['error']}"
-        
         # Return the response data
         return f"Scene context extracted successfully: {json.dumps(response.get('data', {}))}"
+    
     except Exception as e:
         logger.error(f"Error extracting scene context: {str(e)}")
         return f"Error extracting scene context: {str(e)}"
+    
 
+@mcp.tool()
+async def get_scene_file() -> str:
+    """
+    Get the current Unity scene file.
+
+    Returns:
+        A JSON string containing the scene file that is UnityYAML format.
+    """
+    logger.info("Getting scene file from Unity...")
+
+    try:
+        # Send command and get message ID
+        message_id = await server.send_command_to_unity(UnityTools.GET_SCENE_FILE, {})
+        
+        # Wait for the response
+        response = await server.wait_for_response(message_id)
+        return f"Scene file retrieved successfully: {json.dumps(response.get('data', {}))}"
+    
+    except Exception as e:
+        logger.error(f"Error getting scene file: {str(e)}")
+        return f"Error getting scene file: {str(e)}"
 
 @mcp.tool()
 async def execute_unity_code(code: str) -> str:
