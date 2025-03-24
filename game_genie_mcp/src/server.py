@@ -25,7 +25,8 @@ logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     handlers=[
         logging.StreamHandler(sys.stdout),
-        logging.FileHandler("/tmp/genie_mcp_server.log")
+        #logging.FileHandler("./tmp/genie_mcp_server.log")
+        logging.FileHandler("C:\\Users\\druse\\OneDrive\\Desktop\\genie_mcp_server.log")
     ]
 )
 logger = logging.getLogger("GenieMCPServer")

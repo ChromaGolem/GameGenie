@@ -12,7 +12,8 @@ namespace GameGenieUnity
     {
         private static List<string> messageLog = new List<string>();
         // Path to the log file one directory up from this file
-        private static string logPath = "/tmp/genie_client_log.log";
+        //private static string logPath = "/tmp/genie_client_log.log";
+        private static string logPath = "C:\\Users\\druse\\OneDrive\\Desktop\\genie_mcp_server-unity.log";
 
         public static List<string> GetMessageLog()
         {
