@@ -1,5 +1,11 @@
 using UnityEngine;
 using System.Linq;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.Emit;
+using System.Collections.Generic;
+using System.Text.RegularExpressions;
 
 #if UNITY_EDITOR
 using UnityEditor;
@@ -30,74 +36,180 @@ public static class EditorCodeWrapper {
 }";
         try
         {
-            using var provider = new CSharpCodeProvider();
-            var compilerParams = new CompilerParameters
+            // Parse the code first to analyze dependencies
+            SyntaxTree syntaxTree = CSharpSyntaxTree.ParseText(wrappedSourceCode);
+            var root = syntaxTree.GetRoot();
+
+            // Get all identifiers from the code
+            var identifiers = root.DescendantNodes()
+                .OfType<IdentifierNameSyntax>()
+                .Select(id => id.Identifier.ValueText)
+                .Distinct()
+                .ToList();
+
+            // Get all using directives
+            var usingDirectives = root.DescendantNodes()
+                .OfType<UsingDirectiveSyntax>()
+                .Select(u => u.Name.ToString())
+                .Distinct()
+                .ToList();
+
+            // Build list of required assemblies
+            var requiredAssemblies = new HashSet<Assembly>();
+            
+            // Add core assemblies that are always needed
+            requiredAssemblies.Add(typeof(object).Assembly); // mscorlib
+            requiredAssemblies.Add(typeof(UnityEngine.Object).Assembly); // UnityEngine.CoreModule
+            requiredAssemblies.Add(typeof(EditorWindow).Assembly); // UnityEditor.CoreModule
+            requiredAssemblies.Add(Assembly.GetExecutingAssembly()); // Current assembly
+            requiredAssemblies.Add(AppDomain.CurrentDomain.GetAssemblies()
+                .First(a => a.GetName().Name == "netstandard")); // netstandard
+
+            // Get all Unity assemblies
+            var unityAssemblies = AppDomain.CurrentDomain.GetAssemblies()
+                .Where(a => a.GetName().Name.StartsWith("UnityEngine.") || 
+                           a.GetName().Name.StartsWith("UnityEditor."));
+
+            // Function to check if an assembly contains a type
+            bool AssemblyContainsType(Assembly assembly, string typeName)
             {
-                GenerateInMemory = true,
-                GenerateExecutable = false
+                try
+                {
+                    return assembly.GetTypes().Any(t => t.Name == typeName);
+                }
+                catch
+                {
+                    return false; // Handle assembly load errors gracefully
+                }
+            }
+
+            // For each identifier, try to find its assembly
+            foreach (var identifier in identifiers)
+            {
+                foreach (var unityAssembly in unityAssemblies)
+                {
+                    if (AssemblyContainsType(unityAssembly, identifier))
+                    {
+                        // Dyanmically add the assembly to the list of required assemblies
+                        requiredAssemblies.Add(unityAssembly);
+                        break;
+                    }
+                }
+            }
+
+            // Create MetadataReferences from the assemblies
+            var references = requiredAssemblies
+                .Select(a => MetadataReference.CreateFromFile(a.Location))
+                .ToList();
+
+            // Add additional common Unity modules that might be needed
+            var commonUnityModules = new[]
+            {
+                "UnityEngine.PhysicsModule",
+                "UnityEngine.AnimationModule",
+                "UnityEngine.UIModule",
+                "UnityEngine.AudioModule",
+                "UnityEngine.InputModule"
             };
 
-            // Add all the assemblies we might need for Unity Editor scripting
-            // TODO we probably want to dynamically add these based on the types used in the source code,
-            //      but this should work for now, and we can just add more as needed until we figure out a better solution
-            compilerParams.ReferencedAssemblies.Add(typeof(UnityEngine.Object).Assembly.Location);
-            compilerParams.ReferencedAssemblies.Add(typeof(EditorWindow).Assembly.Location);
-            compilerParams.ReferencedAssemblies.Add(typeof(Editor).Assembly.Location);
-            compilerParams.ReferencedAssemblies.Add(typeof(System.Linq.Enumerable).Assembly.Location);
-            
-            // Also reference the current assembly to give the compiled code access to the current project
-            compilerParams.ReferencedAssemblies.Add(Assembly.GetExecutingAssembly().Location); // TODO we should probably actually test that this brings in project namespace
-
-            // Grab the current project's netstandard assembly for the correct Object reference (very important, or else compiler can't disambiguate Object source)
-            compilerParams.ReferencedAssemblies.Add(AppDomain.CurrentDomain.GetAssemblies()
-                    .First(a => a.GetName().Name == "netstandard").Location);
-
-            Debug.Log("Compiling source code: " + wrappedSourceCode);
-
-            // Compile the wrapped code
-            CompilerResults results = provider.CompileAssemblyFromSource(compilerParams, wrappedSourceCode);
-            if (results.Errors.HasErrors)
+            foreach (var moduleName in commonUnityModules)
             {
-                string errorMessage = "Code compilation failed:\n";
-                foreach (CompilerError error in results.Errors)
-                    errorMessage += $"Line {error.Line}: {error.ErrorText}\n";
+                var moduleAssembly = AppDomain.CurrentDomain.GetAssemblies()
+                    .FirstOrDefault(a => a.GetName().Name == moduleName);
+                if (moduleAssembly != null)
+                {
+                    references.Add(MetadataReference.CreateFromFile(moduleAssembly.Location));
+                }
+            }
+
+            Debug.Log($"Compiling with {references.Count} assembly references");
+
+            // Create compilation
+            var compilation = CSharpCompilation.Create(
+                "DynamicAssembly_" + System.Guid.NewGuid().ToString("N"),
+                new[] { syntaxTree },
+                references,
+                new CSharpCompilationOptions(
+                    OutputKind.DynamicallyLinkedLibrary,
+                    optimizationLevel: OptimizationLevel.Release,
+                    allowUnsafe: true
+                )
+            );
+
+            // Emit the compilation to memory
+            using var ms = new System.IO.MemoryStream();
+            EmitResult emitResult = compilation.Emit(ms);
+
+            // If compilation failed, try to identify missing references
+            if (!emitResult.Success)
+            {
+                var errorMessage = "Code compilation failed:\n";
+                var missingTypePattern = new Regex(@"The type or namespace name '(\w+)' could not be found");
+                var missingTypes = new HashSet<string>();
+
+                foreach (var diagnostic in emitResult.Diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error))
+                {
+                    var lineSpan = diagnostic.Location.GetLineSpan();
+                    var lineNumber = lineSpan.StartLinePosition.Line + 1;
+                    var message = diagnostic.GetMessage();
+                    errorMessage += $"Line {lineNumber}: {message}\n";
+
+                    // Extract missing type names
+                    var match = missingTypePattern.Match(message);
+                    if (match.Success)
+                    {
+                        missingTypes.Add(match.Groups[1].Value);
+                    }
+                }
+
+                // Provide helpful information about missing types
+                if (missingTypes.Any())
+                {
+                    errorMessage += "\nMissing types found:\n";
+                    foreach (var type in missingTypes)
+                    {
+                        errorMessage += $"- {type}: This type might be in one of these assemblies:\n";
+                        var possibleAssemblies = AppDomain.CurrentDomain.GetAssemblies()
+                            .Where(a => AssemblyContainsType(a, type))
+                            .Select(a => $"  * {a.GetName().Name}");
+                        errorMessage += string.Join("\n", possibleAssemblies);
+                        errorMessage += "\n";
+                    }
+                }
 
                 Debug.LogError(errorMessage);
                 return errorMessage;
             }
 
-            // Get the compiled assembly and search for our wrapper type.
-            Assembly assembly = results.CompiledAssembly;
+            // Rest of the execution code remains the same...
+            ms.Seek(0, System.IO.SeekOrigin.Begin);
+            Assembly assembly = Assembly.Load(ms.ToArray());
+            
             Type wrapperType = assembly.GetType("EditorCodeWrapper");
             if (wrapperType == null)
             {
-                Debug.LogError("Could not find the 'EditorCodeWrapper' type in the compiled assembly. Did it compile correctly?");
-                Debug.LogError("Source code:\n" + wrappedSourceCode);
-                return $"Error executing generated code: Could not find the 'EditorCodeWrapper' type in the compiled assembly. Did it compile correctly?";
+                Debug.LogError("Could not find the 'EditorCodeWrapper' type in the compiled assembly.");
+                return "Error executing generated code: Could not find the 'EditorCodeWrapper' type.";
             }
 
-            // Look for any method named "Execute" regardless of visibility and just run the first one found (#codesmell)
-            MethodInfo executeMethod = wrapperType.GetMethod("Execute", BindingFlags.Public | BindingFlags.Static | BindingFlags.NonPublic);
+            MethodInfo executeMethod = wrapperType.GetMethod("Execute", 
+                BindingFlags.Public | BindingFlags.Static | BindingFlags.NonPublic);
             if (executeMethod == null)
             {
-                Debug.LogError("No 'Execute' method found in 'EditorCodeWrapper'. Did it compile correctly?");
-                Debug.LogError("Source code:\n" + wrappedSourceCode);
-                return $"Error executing generated code: No 'Execute' method found in 'EditorCodeWrapper'. Did it compile correctly?";
+                Debug.LogError("No 'Execute' method found in 'EditorCodeWrapper'.");
+                return "Error executing generated code: No 'Execute' method found.";
             }
 
-            // Finally, run the code!
             Debug.Log("Executing successfully-compiled source code!");
             executeMethod.Invoke(null, null);
+            
+            return "Code executed successfully from external source.";
         }
         catch (Exception ex)
         {
             Debug.LogError($"Error executing generated code: {ex.Message}\n{ex.StackTrace}");
             return $"Error executing generated code: {ex.Message}\n{ex.StackTrace}";
         }
-
-        // If we made it all the way here... we should have compiled and executed some code without any errors!
-        Debug.Log("Code executed successfully from external source.");
-        return "Code executed successfully from external source.";
 #endif
         }
 

@@ -24,12 +24,6 @@ namespace GameGenieUnity
         public string GetURL() { return $"ws://{serverHost}:{serverPort}"; }
     }
 
-    public class GameGenieCommand
-    {
-        public string command { get; set; }
-        public JObject @params { get; set; }
-    }
-
     public static class UnityClient
     {
         private static ClientWebSocket websocket;

@@ -44,6 +44,10 @@ class UnityTools(str, Enum):
     EDIT_EXISTING_SCRIPT = "edit_existing_script"
     READ_FILE = "read_file"
 
+# Special messages
+class SpecialMessages(str, Enum):
+    RELOAD_SCRIPTS = "reload_scripts"
+
 # Global server variable
 server = None
 
@@ -305,7 +309,15 @@ async def add_script_to_project(relative_path: str, source_code: str) -> str:
         
         # Wait for the response
         response = await server.wait_for_response(message_id)
-        return f"Script added to project at {relative_path}: {json.dumps(response.get('data', {}))}"
+
+        scripts_reloaded = await server.wait_for_response(SpecialMessages.RELOAD_SCRIPTS)
+
+        if scripts_reloaded.get("success"):
+            logger.info(f"Script added and reloaded successfully: {json.dumps(response.get('data', {}))}")
+            return f"Script added and reloaded successfully: {json.dumps(response.get('data', {}))}"
+        else:
+            logger.error(f"Script added successfully but did not reload: {json.dumps(response.get('data', {}))}")
+            return f"Script added successfully but did not reload: {json.dumps(response.get('data', {}))}"
     
     except Exception as e:
         logger.error(f"Error adding script to project: {str(e)}")
@@ -315,7 +327,7 @@ async def add_script_to_project(relative_path: str, source_code: str) -> str:
 @mcp.tool()
 async def edit_existing_script(relative_path: str, new_source_code: str) -> str:
     """
-    Edit an existing script at the given relative path.
+    Used to replace the contents of an existing script at the given relative path. Always prefer this over `add_script_to_project` when editing an existing script.
 
     Args:
         relative_path: The relative path to the script to edit
@@ -329,7 +341,15 @@ async def edit_existing_script(relative_path: str, new_source_code: str) -> str:
         
         # Wait for the response
         response = await server.wait_for_response(message_id)
-        return f"Script edited successfully: {json.dumps(response.get('data', {}))}"
+
+        scripts_reloaded = await server.wait_for_response(SpecialMessages.RELOAD_SCRIPTS)
+
+        if scripts_reloaded.get("success"):
+            logger.info(f"Script edited and reloaded successfully: {json.dumps(response.get('data', {}))}")
+            return f"Script edited and reloaded successfully: {json.dumps(response.get('data', {}))}"
+        else:
+            logger.error(f"Script edited successfully but did not reload: {json.dumps(response.get('data', {}))}")
+            return f"Script edited successfully but did not reload: {json.dumps(response.get('data', {}))}"
     
     except Exception as e:
         logger.error(f"Error editing script: {str(e)}")
@@ -360,7 +380,7 @@ async def read_file(relative_path: str) -> str:
 @mcp.tool()
 async def execute_unity_code(code: str) -> str:
     """
-    Execute C# code in the Unity editor to modify the scene.
+    Execute C# code in the Unity editor to modify the scene. Do not include statements like `using UnityEngine;` or `using UnityEditor;` we will add the correct assemblies for you at compile time.
 
     Args:
         code: The C# code to execute in the Unity editor
@@ -409,8 +429,10 @@ Your goal is to help the user modify their Unity project and create games.
 - If the request is ambiguous, ask a clarifying question.
 - Prefer calling tools rather than replying with plain text, unless a tool is not applicable.
 - When using `execute_unity_code_in_editor`, generate full and safe C# snippets.
+- Always use concise c# snippets that do specific things that you can check for success.
 - Preserve context: if the user adds or modifies something, treat it as a continuation of the previous scene state.
 - Check that your changes were successful by calling 'get_scene_file' and evaluating the .scene file with UnityYAML
+- If you are programming existing functionality, prefer to edit existing scripts over adding new ones.
 
 ### Examples:
 1. If the user says:  
@@ -424,6 +446,10 @@ Your goal is to help the user modify their Unity project and create games.
 3. If the user says:  
    `Add a UI element to the scene.`  
    → Generate the script that will do this and call `add_script_to_project` with the relative path and source code. Make sure to attach the script to the appropriate GameObject.
+
+4. If the user says:  
+   `Edit the enemy patrol script to make it more efficient.`  
+   → Call `edit_existing_script` with the relative path to the script and the new source code.
 
 ### Response Format:
 Respond using structured tool calls when appropriate. Use natural explanations only if the user is asking a question or needs clarification.
