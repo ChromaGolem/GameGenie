@@ -141,7 +141,7 @@ namespace GameGenieUnity
                     try
                     {
 
-                        HelperService.MCPSWITCH(completeMessage);
+                        MCPTOOLS.MCPSWITCH(completeMessage);
 
                     }
                     catch (Exception e)

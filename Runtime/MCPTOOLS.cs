@@ -14,7 +14,12 @@ using Newtonsoft.Json.Linq;
 
 namespace GameGenieUnity
 {
-    public class HelperService
+    public class GameGenieCommand
+    {
+        public string command { get; set; }
+        public JObject @params { get; set; }
+    }
+    public class MCPTOOLS
     {
         public static async void MCPSWITCH(string completeMessage)
         {

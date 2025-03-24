@@ -41,6 +41,8 @@ class UnityTools(str, Enum):
     GET_SCENE_FILE = "get_scene_file"
     EXECUTE_UNITY_CODE = "execute_unity_code_in_editor"
     ADD_SCRIPT_TO_PROJECT = "add_script_to_project"
+    EDIT_EXISTING_SCRIPT = "edit_existing_script"
+    READ_FILE = "read_file"
 
 # Global server variable
 server = None
@@ -246,7 +248,7 @@ def websocket_info() -> Dict[str, Any]:
 @mcp.tool()
 async def get_scene_context() -> str:
     """
-    Extract the current Unity scene context including hierarchy, selected objects, and settings.
+    Extract the current Unity scene context including hierarchy, selected objects, and settings. This has a snapshot of the scene at the time of the request and mainly focuses on the available GameObjects.
 
     Returns:
         A JSON string containing the scene context information.
@@ -271,7 +273,7 @@ async def get_scene_context() -> str:
 @mcp.tool()
 async def get_scene_file() -> str:
     """
-    Get the current Unity scene file.
+    Get the current Unity scene file. This has full info about the scene, including all GameObjects, Components, and their properties.
 
     Returns:
         A JSON string containing the scene file that is UnityYAML format.
@@ -308,6 +310,52 @@ async def add_script_to_project(relative_path: str, source_code: str) -> str:
     except Exception as e:
         logger.error(f"Error adding script to project: {str(e)}")
         return f"Error adding script to project: {str(e)}"
+    
+
+@mcp.tool()
+async def edit_existing_script(relative_path: str, new_source_code: str) -> str:
+    """
+    Edit an existing script at the given relative path.
+
+    Args:
+        relative_path: The relative path to the script to edit
+        new_source_code: The new source code for the script (will completely overwrite the existing file)
+    """
+    logger.info(f"Editing script at {relative_path}...")
+
+    try:
+        # Send command and get message ID
+        message_id = await server.send_command_to_unity(UnityTools.EDIT_EXISTING_SCRIPT, {"relative_path": relative_path, "new_source_code": new_source_code})
+        
+        # Wait for the response
+        response = await server.wait_for_response(message_id)
+        return f"Script edited successfully: {json.dumps(response.get('data', {}))}"
+    
+    except Exception as e:
+        logger.error(f"Error editing script: {str(e)}")
+        return f"Error editing script: {str(e)}"
+    
+
+@mcp.tool()
+async def read_file(relative_path: str) -> str:
+    """
+    Read the contents of a file at the given relative path. Can be used to read any file type as text.
+    """
+    logger.info(f"Reading file at {relative_path}...")
+
+    try:
+        # Send command and get message ID
+        message_id = await server.send_command_to_unity(UnityTools.READ_FILE, {"relative_path": relative_path})
+
+        # Wait for the response
+        response = await server.wait_for_response(message_id)
+        return f"File read successfully: {json.dumps(response.get('data', {}))}"
+    
+    except Exception as e:
+        logger.error(f"Error reading file: {str(e)}")
+        return f"Error reading file: {str(e)}"
+        
+        
 
 @mcp.tool()
 async def execute_unity_code(code: str) -> str:
