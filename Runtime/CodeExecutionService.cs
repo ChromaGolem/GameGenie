@@ -14,7 +14,7 @@ namespace GameGenieUnity
 {
     public class CodeExecutionService : MonoBehaviour
     {
-        public static bool ExecuteInEditor(string sourceCode)
+        public static string ExecuteInEditor(string sourceCode)
         {
 #if UNITY_EDITOR
         Debug.Log("Received raw code to execute in editor: \n" + sourceCode);
@@ -63,7 +63,7 @@ public static class EditorCodeWrapper {
                     errorMessage += $"Line {error.Line}: {error.ErrorText}\n";
 
                 Debug.LogError(errorMessage);
-                return false;
+                return errorMessage;
             }
 
             // Get the compiled assembly and search for our wrapper type.
@@ -73,7 +73,7 @@ public static class EditorCodeWrapper {
             {
                 Debug.LogError("Could not find the 'EditorCodeWrapper' type in the compiled assembly. Did it compile correctly?");
                 Debug.LogError("Source code:\n" + wrappedSourceCode);
-                return false;
+                return $"Error executing generated code: Could not find the 'EditorCodeWrapper' type in the compiled assembly. Did it compile correctly?";
             }
 
             // Look for any method named "Execute" regardless of visibility and just run the first one found (#codesmell)
@@ -82,7 +82,7 @@ public static class EditorCodeWrapper {
             {
                 Debug.LogError("No 'Execute' method found in 'EditorCodeWrapper'. Did it compile correctly?");
                 Debug.LogError("Source code:\n" + wrappedSourceCode);
-                return false;
+                return $"Error executing generated code: No 'Execute' method found in 'EditorCodeWrapper'. Did it compile correctly?";
             }
 
             // Finally, run the code!
@@ -92,16 +92,16 @@ public static class EditorCodeWrapper {
         catch (Exception ex)
         {
             Debug.LogError($"Error executing generated code: {ex.Message}\n{ex.StackTrace}");
-            return false;
+            return $"Error executing generated code: {ex.Message}\n{ex.StackTrace}";
         }
 
         // If we made it all the way here... we should have compiled and executed some code without any errors!
         Debug.Log("Code executed successfully from external source.");
-        return true;
+        return "Code executed successfully from external source.";
 #endif
         }
 
-        public static bool AddScriptToProject(string relativePath, string sourceCode)
+        public static string AddScriptToProject(string relativePath, string sourceCode)
         {
 #if UNITY_EDITOR
         try
@@ -121,12 +121,12 @@ public static class EditorCodeWrapper {
             // Finally, import the new asset into Unity
             AssetDatabase.ImportAsset(relativePath, ImportAssetOptions.ForceUpdate);
             Debug.Log("Script added to project at: " + relativePath);
-            return true;
+            return "Script added to project at: " + relativePath;
         }
         catch (Exception ex)
         {
             Debug.LogError($"Error adding script to project: {ex.Message}\n{ex.StackTrace}");
-            return false;
+            return $"Error adding script to project: {ex.Message}\n{ex.StackTrace}";
         }
 #endif
         }
