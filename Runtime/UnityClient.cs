@@ -214,7 +214,39 @@ namespace GameGenieUnity
                                 }
                                 break;
 
-                                // Add other command handlers here
+                            case "get_scene_file":
+                                try
+                                {
+                                    string sceneFile = SceneContextService.GetSceneFile();
+                                    string response = JsonConvert.SerializeObject(new
+                                    {
+                                        type = "response",
+                                        command = "get_scene_file",
+                                        message_id = messageId,
+                                        data = new
+                                        {
+                                            success = true,
+                                            sceneFile = sceneFile
+                                        }
+                                    });
+                                    await SendRawMessage(response);
+                                }
+                                catch (Exception ex)
+                                {
+                                    string errorResponse = JsonConvert.SerializeObject(new
+                                    {
+                                        type = "response",
+                                        command = "get_scene_file",
+                                        message_id = messageId,
+                                        data = new
+                                        {
+                                            success = false,
+                                            error = ex.Message
+                                        }
+                                    });
+                                    await SendRawMessage(errorResponse);
+                                }
+                                break;
                         }
                     }
                     catch (Exception e)
@@ -222,9 +254,9 @@ namespace GameGenieUnity
                         Logger.AddToLog($"Error parsing message: {e.Message}");
                     }
 
-                    // Clear the buffer for the next message
-                    messageBuffer.Clear();
-                }
+                        // Clear the buffer for the next message
+                        messageBuffer.Clear();
+                    }
             }
             catch (Exception e)
             {

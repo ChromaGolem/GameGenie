@@ -6,6 +6,7 @@ using UnityEngine;
 using UnityEditor;
 
 using System;
+using System.IO;
 using System.Text;
 using System.Collections.Generic;
 using System.Linq;
@@ -15,6 +16,15 @@ namespace GameGenieUnity
 {
     public class SceneContextService : MonoBehaviour
     {
+
+        public static string GetSceneFile()
+        {
+            string sceneFilePath = UnityEngine.SceneManagement.SceneManager.GetActiveScene().path;
+            string[] contents = File.ReadAllLines(sceneFilePath);
+            string sceneContent = string.Join("\n", contents);
+            return sceneContent;
+        }
+
         public static object GetSceneContext()
         {
             try
