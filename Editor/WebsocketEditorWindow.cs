@@ -25,6 +25,33 @@ public class WebSocketEditorWindow : EditorWindow
         GetWindow<WebSocketEditorWindow>("WebSocket Test");
     }
 
+    [InitializeOnLoadMethod]
+    private static void OnAfterDomainReload()
+    {
+        // This code runs immediately after a compile & domain reload!
+        GameGenieUnity.Logger.AddToLog("Scripts reloaded!");
+
+        // Send response with the same message ID
+        string response = JsonConvert.SerializeObject(new
+        {
+            type = "response",
+            message_id = "reload_scripts",
+            success = true
+        });
+
+        // we're letting mcp know that the scripts have been reloaded
+        UnityClient.SendRawMessage(response);
+    }
+
+    void OnEnable() {
+        // Check if the server is already connected
+        if (!GameGenieUnity.UnityClient.isConnected)
+        {
+            GameGenieUnity.UnityClient.ConnectToServer();
+            Debug.Log("Connected to server");
+        }
+    }
+
     void OnGUI()
     {
         GUILayout.Label("WebSocket Connection", EditorStyles.boldLabel);

@@ -27,7 +27,9 @@ namespace GameGenieUnity
 
         public static string ReadFile(string relativePath)
         {
-            string fullPath = Path.Combine(Application.dataPath, relativePath);
+                            // Remove "Assets/" from the relative path (if it's there) and combine with Application.dataPath to get a full path
+            string relativeSubPath = relativePath.StartsWith("Assets/") ? relativePath.Substring("Assets/".Length) : relativePath;
+            string fullPath = Path.Combine(Application.dataPath, relativeSubPath);
             string[] contents = File.ReadAllLines(fullPath);
             string fileContent = string.Join("\n", contents);
             return fileContent;
