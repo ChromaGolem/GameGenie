@@ -62,13 +62,33 @@ public static class EditorCodeWrapper {
             requiredAssemblies.Add(typeof(UnityEngine.Object).Assembly); // UnityEngine.CoreModule
             requiredAssemblies.Add(typeof(EditorWindow).Assembly); // UnityEditor.CoreModule
             requiredAssemblies.Add(Assembly.GetExecutingAssembly()); // Current assembly
+
+            // Add Assembly-CSharp and Assembly-CSharp-Editor
+            var assemblyCSharp = AppDomain.CurrentDomain.GetAssemblies()
+                .FirstOrDefault(a => a.GetName().Name == "Assembly-CSharp");
+            if (assemblyCSharp != null)
+            {
+                requiredAssemblies.Add(assemblyCSharp);
+                Debug.Log("Added Assembly-CSharp to references");
+            }
+
+            var assemblyCSharpEditor = AppDomain.CurrentDomain.GetAssemblies()
+                .FirstOrDefault(a => a.GetName().Name == "Assembly-CSharp-Editor");
+            if (assemblyCSharpEditor != null)
+            {
+                requiredAssemblies.Add(assemblyCSharpEditor);
+                Debug.Log("Added Assembly-CSharp-Editor to references");
+            }
+
             requiredAssemblies.Add(AppDomain.CurrentDomain.GetAssemblies()
                 .First(a => a.GetName().Name == "netstandard")); // netstandard
 
             // Get all Unity assemblies
             var unityAssemblies = AppDomain.CurrentDomain.GetAssemblies()
                 .Where(a => a.GetName().Name.StartsWith("UnityEngine.") || 
-                           a.GetName().Name.StartsWith("UnityEditor."));
+                           a.GetName().Name.StartsWith("UnityEditor.") ||
+                           a.GetName().Name == "Assembly-CSharp" ||  // Also include in search
+                           a.GetName().Name == "Assembly-CSharp-Editor");  // Also include in search
 
             // Function to check if an assembly contains a type
             bool AssemblyContainsType(Assembly assembly, string typeName)
