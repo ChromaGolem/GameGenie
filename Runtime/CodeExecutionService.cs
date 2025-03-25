@@ -327,12 +327,13 @@ public static class EditorCodeWrapper {
             if (!Directory.Exists(directory))
                 Directory.CreateDirectory(directory);
 
+            // Commented our but maybe we will use later
             // Compile the source code first to ensure it's valid return the error message if it's not
-            string compileResult = CompileSourceCode(sourceCode);
-            if (compileResult != "success")
-            {
-                return $"Error compiling script: {compileResult}";
-            }
+            //string compileResult = CompileSourceCode(sourceCode);
+            //if (compileResult != "success")
+            //{
+            //    return $"Error compiling script: {compileResult}";
+            //}
 
             // Write the source code to the file
             File.WriteAllText(fullPath, sourceCode);
@@ -366,12 +367,13 @@ public static class EditorCodeWrapper {
                     return $"Error editing script: Script to edit does not exist at: {fullPath} use add_script_to_project to create a new script";
                 }
 
+                // Commented out but maybe we will use later
                 // Compile the source code first to ensure it's valid return the error message if it's not
-                string compileResult = CompileSourceCode(newSourceCode);
-                if (compileResult != "success")
-                {
-                    return $"Error compiling script: {compileResult}";
-                }
+                //string compileResult = CompileSourceCode(newSourceCode);
+                //if (compileResult != "success")
+                //{
+                //    return $"Error compiling script: {compileResult}";
+                //}
 
                 // Write the source code to the file
                 // this should automatically overwrite the existing file
