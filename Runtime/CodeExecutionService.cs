@@ -20,6 +20,39 @@ namespace GameGenieUnity
 {
     public class CodeExecutionService : MonoBehaviour
     {
+        private class LogCapture : IDisposable
+        {
+            private readonly List<string> capturedLogs = new List<string>();
+            
+            public LogCapture()
+            {
+                Application.logMessageReceived += CaptureLog;
+            }
+
+            private void CaptureLog(string logString, string stackTrace, LogType type)
+            {
+                if (type == LogType.Error || type == LogType.Exception)
+                {
+                    capturedLogs.Add($"{type}: {logString}\n{stackTrace}");
+                }
+            }
+
+            public void Dispose()
+            {
+                Application.logMessageReceived -= CaptureLog;
+            }
+
+            public string GetCapturedLogs()
+            {
+                return string.Join("\n", capturedLogs);
+            }
+
+            public bool HasErrors()
+            {
+                return capturedLogs.Count > 0;
+            }
+        }
+
         public static string ExecuteInEditor(string sourceCode)
         {
 #if UNITY_EDITOR
@@ -221,7 +254,52 @@ public static class EditorCodeWrapper {
             }
 
             Debug.Log("Executing successfully-compiled source code!");
-            executeMethod.Invoke(null, null);
+            
+            // Use LogCapture to catch any Unity errors during execution
+            using (var logCapture = new LogCapture())
+            {
+                try
+                {
+                    executeMethod.Invoke(null, null);
+                    
+                    // Check if any errors were logged during execution
+                    if (logCapture.HasErrors())
+                    {
+                        string errorLogs = logCapture.GetCapturedLogs();
+                        Debug.LogError($"Code execution generated errors:\n{errorLogs}");
+                        return $"Code execution generated errors:\n{errorLogs}";
+                    }
+                }
+                catch (TargetInvocationException tie)
+                {
+                    // Get the actual exception that occurred during execution
+                    var innerException = tie.InnerException;
+                    string errorMessage = $"Runtime error during code execution: {innerException?.Message}";
+                    string stackTrace = innerException?.StackTrace ?? "";
+                    
+                    // Also include any Unity error logs that were captured
+                    if (logCapture.HasErrors())
+                    {
+                        errorMessage += $"\n\nAdditional Unity error logs:\n{logCapture.GetCapturedLogs()}";
+                    }
+                    
+                    Debug.LogError($"{errorMessage}\n{stackTrace}");
+                    return errorMessage;
+                }
+                catch (Exception ex)
+                {
+                    string errorMessage = $"Unexpected error during code execution: {ex.Message}";
+                    
+                    // Include any Unity error logs that were captured
+                    if (logCapture.HasErrors())
+                    {
+                        errorMessage += $"\n\nAdditional Unity error logs:\n{logCapture.GetCapturedLogs()}";
+                    }
+                    
+                    Debug.LogError($"{errorMessage}\n{ex.StackTrace}");
+                    return errorMessage;
+                }
+            }
             
             return "Code executed successfully from external source.";
         }
