@@ -23,7 +23,7 @@ namespace GameGenieUnity
         private class LogCapture : IDisposable
         {
             private readonly List<string> capturedLogs = new List<string>();
-            
+
             public LogCapture()
             {
                 Application.logMessageReceived += CaptureLog;
@@ -327,6 +327,13 @@ public static class EditorCodeWrapper {
             if (!Directory.Exists(directory))
                 Directory.CreateDirectory(directory);
 
+            // Compile the source code first to ensure it's valid return the error message if it's not
+            string compileResult = CompileSourceCode(sourceCode);
+            if (compileResult != "success")
+            {
+                return $"Error compiling script: {compileResult}";
+            }
+
             // Write the source code to the file
             File.WriteAllText(fullPath, sourceCode);
 
@@ -359,6 +366,13 @@ public static class EditorCodeWrapper {
                     return $"Error editing script: Script to edit does not exist at: {fullPath} use add_script_to_project to create a new script";
                 }
 
+                // Compile the source code first to ensure it's valid return the error message if it's not
+                string compileResult = CompileSourceCode(newSourceCode);
+                if (compileResult != "success")
+                {
+                    return $"Error compiling script: {compileResult}";
+                }
+
                 // Write the source code to the file
                 // this should automatically overwrite the existing file
                 File.WriteAllText(fullPath, newSourceCode);
@@ -374,6 +388,34 @@ public static class EditorCodeWrapper {
                 return $"Error editing script: {ex.Message}\n{ex.StackTrace}";
             }
 #endif
+        }
+        
+        private static string CompileSourceCode(string sourceCode)
+        {
+            // First verify the code compiles
+            var syntaxTree = CSharpSyntaxTree.ParseText(sourceCode);
+            var compilation = CSharpCompilation.Create(
+                "ScriptValidation_" + System.Guid.NewGuid().ToString("N"),
+                new[] { syntaxTree },
+                new[] {
+                    MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
+                    MetadataReference.CreateFromFile(typeof(UnityEngine.Object).Assembly.Location)
+                },
+                new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary)
+            );
+
+            using (var ms = new System.IO.MemoryStream())
+            {
+                EmitResult emitResult = compilation.Emit(ms);
+                if (!emitResult.Success)
+                {
+                    var errors = string.Join("\n", emitResult.Diagnostics
+                        .Where(d => d.Severity == DiagnosticSeverity.Error)
+                        .Select(d => $"Line {d.Location.GetLineSpan().StartLinePosition.Line + 1}: {d.GetMessage()}"));
+                    return $"Compilation failed:\n{errors}";
+                }
+            }
+            return "success";
         }
     }
 }
