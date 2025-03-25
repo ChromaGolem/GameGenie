@@ -93,6 +93,7 @@ public static class EditorCodeWrapper {
             // Add core assemblies that are always needed
             requiredAssemblies.Add(typeof(object).Assembly); // mscorlib
             requiredAssemblies.Add(typeof(UnityEngine.Object).Assembly); // UnityEngine.CoreModule
+            requiredAssemblies.Add(typeof(UnityEditor.EditorApplication).Assembly); // UnityEditor.CoreModule
             requiredAssemblies.Add(typeof(EditorWindow).Assembly); // UnityEditor.CoreModule
             requiredAssemblies.Add(typeof(UnityEngine.UI.Button).Assembly); // UnityEngine.UI
             requiredAssemblies.Add(Assembly.GetExecutingAssembly()); // Current assembly
