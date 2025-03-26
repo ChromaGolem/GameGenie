@@ -272,7 +272,6 @@ async def get_scene_context() -> str:
     except Exception as e:
         logger.error(f"Error extracting scene context: {str(e)}")
         return f"Error extracting scene context: {str(e)}"
-    
 
 @mcp.tool()
 async def get_scene_file() -> str:
@@ -329,6 +328,8 @@ async def edit_existing_script(relative_path: str, new_source_code: str) -> str:
     """
     Used to replace the contents of an existing script at the given relative path. Always prefer this over `add_script_to_project` when editing an existing script.
 
+    Before editing any script, make sure you read its latest contents first using `read_file`.
+
     Args:
         relative_path: The relative path to the script to edit
         new_source_code: The new source code for the script (will completely overwrite the existing file)
@@ -380,7 +381,24 @@ async def read_file(relative_path: str) -> str:
 @mcp.tool()
 async def execute_unity_code(code: str) -> str:
     """
-    Execute C# code in the Unity editor to modify the scene. Do not include statements like `using UnityEngine;` or `using UnityEditor;` we will add the correct assemblies for you at compile time.
+    Execute C# code in the Unity editor to modify the scene. 
+    
+    Do not include statements like `using UnityEngine;` or `using UnityEditor;` we will add the correct assemblies for you at compile time.
+    Do not use functions or other syntax that can't be directly inserted into the body of a C# method.
+    Do not return any values from the code you provide, nor break early. You're in a void-return method.
+
+    This code will be wrapped with the following structure for execution after you've generated it (do not include this in the code you provide):
+
+    ```csharp
+    string wrappedSourceCode = @"
+using UnityEngine;
+using UnityEditor;
+public static class EditorCodeWrapper {
+    public static void Execute() {
+" + sourceCode + @"
+    }
+}";
+    ```
 
     Args:
         code: The C# code to execute in the Unity editor
