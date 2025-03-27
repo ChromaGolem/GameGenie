@@ -352,6 +352,36 @@ public static class EditorCodeWrapper {
 #endif
         }
 
+        public static string AddRawFileToProject(string relativePath, string fileContent)
+        {
+#if UNITY_EDITOR
+            try
+            {
+                // Remove "Assets/" from the relative path (if it's there) and combine with Application.dataPath to get a full path
+                string relativeSubPath = relativePath.StartsWith("Assets/") ? relativePath.Substring("Assets/".Length) : relativePath;
+                string fullPath = Path.Combine(Application.dataPath, relativeSubPath);
+
+                // Ensure the directory exists (and create it if not)
+                string directory = Path.GetDirectoryName(fullPath);
+                if (!Directory.Exists(directory))
+                    Directory.CreateDirectory(directory);
+
+                // Write the file content to the file
+                File.WriteAllText(fullPath, fileContent);
+
+                // Finally, import the new asset into Unity
+                AssetDatabase.ImportAsset(relativePath, ImportAssetOptions.ForceUpdate);
+                Debug.Log("File added to project at: " + relativePath);
+                return "File added to project at: " + relativePath;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"Error adding file to project: {ex.Message}\n{ex.StackTrace}");
+                return $"Error adding file to project: {ex.Message}\n{ex.StackTrace}";
+            }
+#endif
+        }
+
         public static string EditExistingScript(string relativePath, string newSourceCode)
         {
 #if UNITY_EDITOR

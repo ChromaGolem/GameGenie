@@ -53,6 +53,7 @@ class UnityTools(str, Enum):
     EDIT_EXISTING_SCRIPT = "edit_existing_script"
     SAVE_IMAGE = "save_image_to_project"
     READ_FILE = "read_file"
+    EDIT_PREFAB = "edit_prefab"
 
 # Special messages
 class SpecialMessages(str, Enum):
@@ -384,6 +385,27 @@ async def edit_existing_script(relative_path: str, new_source_code: str) -> str:
         logger.error(f"Error editing script: {str(e)}")
         return f"Error editing script: {str(e)}"
     
+@mcp.tool()
+async def edit_prefab(relative_path: str, new_yaml_data: str) -> str:
+    """
+    Used to replace the contents of an existing prefab at the given relative path.
+
+    Args:
+        relative_path: The relative path to the prefab to edit
+        new_yaml_data: The new YAML data for the prefab (will completely overwrite the existing file)
+    """
+    logger.info(f"Editing prefab at {relative_path}...")
+    try:
+        # Send command and get message ID
+        message_id = await server.send_command_to_unity(UnityTools.EDIT_PREFAB, {"relative_path": relative_path, "new_yaml_data": new_yaml_data})
+        
+        # Wait for the response
+        response = await server.wait_for_response(message_id)
+        return f"Prefab edited successfully: {json.dumps(response.get('data', {}))}"
+    
+    except Exception as e:
+        logger.error(f"Error editing prefab: {str(e)}")
+        return f"Error editing prefab: {str(e)}"
 
 @mcp.tool()
 async def read_file(relative_path: str) -> str:

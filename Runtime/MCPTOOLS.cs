@@ -211,6 +211,39 @@ namespace GameGenieUnity
                     }
                     break;
 
+                case "edit_prefab":
+                    try
+                    {
+                        string prefabPath = json.@params["prefab_path"]?.ToString() ?? "";
+                        string newPrefabYaml = json.@params["new_yaml_data"]?.ToString() ?? "";
+
+                        // Send response BEFORE editing the prefab
+                        string response = JsonConvert.SerializeObject(new
+                        {
+                            type = "response",
+                            command = "edit_prefab",
+                            message_id = messageId,
+                            data = new { success = true, result = "Prefab will be edited at: " + prefabPath }
+                        });
+
+                        // Now edit the prefab by just overwriting the file with this new YAML data
+                        GameGenieUnity.CodeExecutionService.AddRawFileToProject(prefabPath, newPrefabYaml);
+
+                        await UnityClient.SendRawMessage(response);
+                    }
+                    catch (Exception ex)
+                    {
+                        string errorResponse = JsonConvert.SerializeObject(new
+                        {
+                            type = "response",
+                            command = "edit_prefab",
+                            message_id = messageId,
+                            data = new { success = false, error = ex.Message }
+                        });
+                        await UnityClient.SendRawMessage(errorResponse);
+                    }
+                    break;
+
                 case "read_file":
                     try
                     {
