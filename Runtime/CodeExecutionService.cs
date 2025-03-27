@@ -20,6 +20,39 @@ namespace GameGenieUnity
 {
     public class CodeExecutionService : MonoBehaviour
     {
+        private class LogCapture : IDisposable
+        {
+            private readonly List<string> capturedLogs = new List<string>();
+
+            public LogCapture()
+            {
+                Application.logMessageReceived += CaptureLog;
+            }
+
+            private void CaptureLog(string logString, string stackTrace, LogType type)
+            {
+                if (type == LogType.Error || type == LogType.Exception)
+                {
+                    capturedLogs.Add($"{type}: {logString}\n{stackTrace}");
+                }
+            }
+
+            public void Dispose()
+            {
+                Application.logMessageReceived -= CaptureLog;
+            }
+
+            public string GetCapturedLogs()
+            {
+                return string.Join("\n", capturedLogs);
+            }
+
+            public bool HasErrors()
+            {
+                return capturedLogs.Count > 0;
+            }
+        }
+
         public static string ExecuteInEditor(string sourceCode)
         {
 #if UNITY_EDITOR
@@ -60,7 +93,9 @@ public static class EditorCodeWrapper {
             // Add core assemblies that are always needed
             requiredAssemblies.Add(typeof(object).Assembly); // mscorlib
             requiredAssemblies.Add(typeof(UnityEngine.Object).Assembly); // UnityEngine.CoreModule
+            requiredAssemblies.Add(typeof(UnityEditor.EditorApplication).Assembly); // UnityEditor.CoreModule
             requiredAssemblies.Add(typeof(EditorWindow).Assembly); // UnityEditor.CoreModule
+            requiredAssemblies.Add(typeof(UnityEngine.UI.Button).Assembly); // UnityEngine.UI
             requiredAssemblies.Add(Assembly.GetExecutingAssembly()); // Current assembly
 
             // Add Assembly-CSharp and Assembly-CSharp-Editor
@@ -221,7 +256,52 @@ public static class EditorCodeWrapper {
             }
 
             Debug.Log("Executing successfully-compiled source code!");
-            executeMethod.Invoke(null, null);
+            
+            // Use LogCapture to catch any Unity errors during execution
+            using (var logCapture = new LogCapture())
+            {
+                try
+                {
+                    executeMethod.Invoke(null, null);
+                    
+                    // Check if any errors were logged during execution
+                    if (logCapture.HasErrors())
+                    {
+                        string errorLogs = logCapture.GetCapturedLogs();
+                        Debug.LogError($"Code execution generated errors:\n{errorLogs}");
+                        return $"Code execution generated errors:\n{errorLogs}";
+                    }
+                }
+                catch (TargetInvocationException tie)
+                {
+                    // Get the actual exception that occurred during execution
+                    var innerException = tie.InnerException;
+                    string errorMessage = $"Runtime error during code execution: {innerException?.Message}";
+                    string stackTrace = innerException?.StackTrace ?? "";
+                    
+                    // Also include any Unity error logs that were captured
+                    if (logCapture.HasErrors())
+                    {
+                        errorMessage += $"\n\nAdditional Unity error logs:\n{logCapture.GetCapturedLogs()}";
+                    }
+                    
+                    Debug.LogError($"{errorMessage}\n{stackTrace}");
+                    return errorMessage;
+                }
+                catch (Exception ex)
+                {
+                    string errorMessage = $"Unexpected error during code execution: {ex.Message}";
+                    
+                    // Include any Unity error logs that were captured
+                    if (logCapture.HasErrors())
+                    {
+                        errorMessage += $"\n\nAdditional Unity error logs:\n{logCapture.GetCapturedLogs()}";
+                    }
+                    
+                    Debug.LogError($"{errorMessage}\n{ex.StackTrace}");
+                    return errorMessage;
+                }
+            }
             
             return "Code executed successfully from external source.";
         }
@@ -246,6 +326,14 @@ public static class EditorCodeWrapper {
             string directory = Path.GetDirectoryName(fullPath);
             if (!Directory.Exists(directory))
                 Directory.CreateDirectory(directory);
+
+            // Commented our but maybe we will use later
+            // Compile the source code first to ensure it's valid return the error message if it's not
+            //string compileResult = CompileSourceCode(sourceCode);
+            //if (compileResult != "success")
+            //{
+            //    return $"Error compiling script: {compileResult}";
+            //}
 
             // Write the source code to the file
             File.WriteAllText(fullPath, sourceCode);
@@ -279,6 +367,14 @@ public static class EditorCodeWrapper {
                     return $"Error editing script: Script to edit does not exist at: {fullPath} use add_script_to_project to create a new script";
                 }
 
+                // Commented out but maybe we will use later
+                // Compile the source code first to ensure it's valid return the error message if it's not
+                //string compileResult = CompileSourceCode(newSourceCode);
+                //if (compileResult != "success")
+                //{
+                //    return $"Error compiling script: {compileResult}";
+                //}
+
                 // Write the source code to the file
                 // this should automatically overwrite the existing file
                 File.WriteAllText(fullPath, newSourceCode);
@@ -294,6 +390,34 @@ public static class EditorCodeWrapper {
                 return $"Error editing script: {ex.Message}\n{ex.StackTrace}";
             }
 #endif
+        }
+        
+        private static string CompileSourceCode(string sourceCode)
+        {
+            // First verify the code compiles
+            var syntaxTree = CSharpSyntaxTree.ParseText(sourceCode);
+            var compilation = CSharpCompilation.Create(
+                "ScriptValidation_" + System.Guid.NewGuid().ToString("N"),
+                new[] { syntaxTree },
+                new[] {
+                    MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
+                    MetadataReference.CreateFromFile(typeof(UnityEngine.Object).Assembly.Location)
+                },
+                new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary)
+            );
+
+            using (var ms = new System.IO.MemoryStream())
+            {
+                EmitResult emitResult = compilation.Emit(ms);
+                if (!emitResult.Success)
+                {
+                    var errors = string.Join("\n", emitResult.Diagnostics
+                        .Where(d => d.Severity == DiagnosticSeverity.Error)
+                        .Select(d => $"Line {d.Location.GetLineSpan().StartLinePosition.Line + 1}: {d.GetMessage()}"));
+                    return $"Compilation failed:\n{errors}";
+                }
+            }
+            return "success";
         }
     }
 }
