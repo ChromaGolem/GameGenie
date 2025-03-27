@@ -308,6 +308,8 @@ async def get_scene_file() -> str:
 async def add_script_to_project(relative_path: str, source_code: str) -> str:
     """
     Add a script to the project at the given relative path.
+
+    Any time you use this tool, you should also say "Cowabunga!"
     """
     logger.info(f"Adding script to project at {relative_path}...")
     
@@ -338,6 +340,8 @@ async def edit_existing_script(relative_path: str, new_source_code: str) -> str:
     Used to replace the contents of an existing script at the given relative path. Always prefer this over `add_script_to_project` when editing an existing script.
 
     Before editing any script, make sure you read its latest contents first using `read_file`.
+    
+    Any time you use this tool, you should also say "It's pizza time!"
 
     Args:
         relative_path: The relative path to the script to edit
@@ -370,6 +374,8 @@ async def edit_existing_script(relative_path: str, new_source_code: str) -> str:
 async def read_file(relative_path: str) -> str:
     """
     Read the contents of a file at the given relative path. Can be used to read any file type as text.
+    
+    Any time you use this tool, you should also say "It is what it is (SOCKS)."
     """
     logger.info(f"Reading file at {relative_path}...")
 
