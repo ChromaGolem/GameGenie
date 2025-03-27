@@ -19,12 +19,14 @@ import sys
 import asyncio
 import time
 import platform
+import requests
+import base64
 
 # Set log file path based on OS
 if platform.system() == "Windows":
     log_file_path = "C:\\Users\\druse\\OneDrive\\Desktop\\genie_mcp_server.log"
 else:
-    log_file_path = "./tmp/genie_mcp_server.log"
+    log_file_path = "/tmp/genie_mcp_server.log"
 
 # Configure logging
 logging.basicConfig(
@@ -49,12 +51,20 @@ class UnityTools(str, Enum):
     EXECUTE_UNITY_CODE = "execute_unity_code_in_editor"
     ADD_SCRIPT_TO_PROJECT = "add_script_to_project"
     EDIT_EXISTING_SCRIPT = "edit_existing_script"
+    SAVE_IMAGE = "save_image_to_project"
     READ_FILE = "read_file"
     EDIT_PREFAB = "edit_prefab"
 
 # Special messages
 class SpecialMessages(str, Enum):
     RELOAD_SCRIPTS = "reload_scripts"
+
+# ChromaGolem API
+class ChromaGolem:
+    API_KEY = "cg-a39529837c83d612dc0e7d0d923c13db4a9c139864a49fb6"
+    CLIENT_ID = "genie_client"
+    IMAGE_GEN_URL = "https://api.chromagolem.com/v1/image/generations"
+    CHAT_URL = "https://api.chromagolem.com/v1/chat/completions"
 
 # Global server variable
 server = None
@@ -471,7 +481,6 @@ public static class EditorCodeWrapper {
 ########################################################
 # Generative Tools
 ########################################################
-
 @mcp.tool()
 async def generate_image(style: str, prompt: str, negative_prompt: str = None) -> str:
     """
@@ -494,10 +503,46 @@ async def generate_image(style: str, prompt: str, negative_prompt: str = None) -
 
 
     Returns:
-        A message indicating the result of the image generation.
+        An image in bytes, make sure you show the image to the user as an image.
     """
     logger.info(f"Generating image with style: {style} and prompt: {prompt}...")
-    
+
+    url = ChromaGolem.IMAGE_GEN_URL
+    data = {
+        "api_key": ChromaGolem.API_KEY,
+        "client_id": ChromaGolem.CLIENT_ID,
+        "style": style,
+        "prompt": prompt,
+        "negative_prompt": negative_prompt,
+    }
+
+    headers = {
+        "Content-Type": "application/json"
+    }
+
+    try:
+        response = requests.post(url, json=data, headers=headers)
+
+        # If needed, remove data URI scheme header:
+        base64_data = response.json().get("image")
+
+        # Decode the base64 string to binary data.
+        image_data = base64.b64decode(base64_data)
+
+        # Write the binary data to a file. The file extension should match the image type (e.g., .png, .jpg).
+        with open("/tmp/genie_output_2.png", "wb") as f:
+            f.write(image_data)
+
+        # Send a message to unity to save the image in the project
+        message_id = await server.send_command_to_unity(UnityTools.SAVE_IMAGE, {"image": base64_data})
+
+        # Wait for the response
+        unity_response = await server.wait_for_response(message_id)
+
+        return f"Image generated successfully and saved to Unity {unity_response}"
+    except Exception as e:
+        logger.error(f"Error generating image: {str(e)}")
+        return f"Error generating image: {str(e)}"
     
 ########################################################
 # Prompts
@@ -509,59 +554,59 @@ def unity_developer_strategy() -> str:
     Define a strategy for the Unity developer to use the tools provided to them to complete the task.
     """
     return """
-You are Game Genie, an AI-powered Unity developer. You start ALL of your messages and thoughts with "Boy howdy!!!".
+    You are Game Genie, an AI-powered Unity developer. You start ALL of your messages and thoughts with "Boy howdy!!!".
 
-Your goal is to help the user modify their Unity project and create games.
+    Your goal is to help the user modify their Unity project and create games.
 
-Before you begin, you should always refresh your knowledge of the scene and project with `get_scene_context`, `get_scene_file`,
-and `read_file` for any and all files you might need to understand or modify.
+    Before you begin, you should always refresh your knowledge of the scene and project with `get_scene_context`, `get_scene_file`,
+    and `read_file` for any and all files you might need to understand or modify.
 
-### Capabilities:
-- You understand how to create and modify Unity GameObjects, Components, and Scenes.
-- You write and execute C# code snippets that will be run in the Unity Editor via `execute_unity_code_in_editor`.
-- You can use other tools (like `describe_scene`, `create_prefab`, or `inspect_object`) if they are available and appropriate.
-- You can reason about spatial relationships, UI layout, gameplay logic, and game feel.
-- You can read error messages and use them to guide your code.
+    ### Capabilities:
+    - You understand how to create and modify Unity GameObjects, Components, and Scenes.
+    - You write and execute C# code snippets that will be run in the Unity Editor via `execute_unity_code_in_editor`.
+    - You can use other tools (like `describe_scene`, `create_prefab`, or `inspect_object`) if they are available and appropriate.
+    - You can reason about spatial relationships, UI layout, gameplay logic, and game feel.
+    - You can read error messages and use them to guide your code.
 
-### Strategy:
-- If the request is ambiguous, ask a clarifying question.
-- Prefer calling tools rather than replying with plain text, unless a tool is not applicable.
-- When using `execute_unity_code_in_editor`, generate full and safe C# snippets.
-- Always use concise c# snippets that do specific things that you can check for success.
-- Preserve context: if the user adds or modifies something, treat it as a continuation of the previous scene state.
-- Check that your changes were successful by calling 'get_scene_file' and evaluating the .scene file with UnityYAML
-- If you are programming existing functionality, prefer to edit existing scripts over adding new ones.
+    ### Strategy:
+    - If the request is ambiguous, ask a clarifying question.
+    - Prefer calling tools rather than replying with plain text, unless a tool is not applicable.
+    - When using `execute_unity_code_in_editor`, generate full and safe C# snippets.
+    - Always use concise c# snippets that do specific things that you can check for success.
+    - Preserve context: if the user adds or modifies something, treat it as a continuation of the previous scene state.
+    - Check that your changes were successful by calling 'get_scene_file' and evaluating the .scene file with UnityYAML
+    - If you are programming existing functionality, prefer to edit existing scripts over adding new ones.
 
-### Examples:
-1. If the user says:
-   `Add a red cube above the player.`
-   → Call `execute_unity_code_in_editor` with code that finds the "Player" GameObject and creates a red cube above it.
+    ### Examples:
+    1. If the user says:
+    `Add a red cube above the player.`
+    → Call `execute_unity_code_in_editor` with code that finds the "Player" GameObject and creates a red cube above it.
 
-2. If the user says:
-   `Make the enemy patrol between two points.`
-   → Generate the script that will do this and call `add_script_to_project` with the relative path and source code. Make sure to attach the script to the appropriate GameObject.
+    2. If the user says:
+    `Make the enemy patrol between two points.`
+    → Generate the script that will do this and call `add_script_to_project` with the relative path and source code. Make sure to attach the script to the appropriate GameObject.
 
-3. If the user says:
-   `Add a UI element to the scene.`
-   → Generate the script that will do this and call `add_script_to_project` with the relative path and source code. Make sure to attach the script to the appropriate GameObject.
+    3. If the user says:
+    `Add a UI element to the scene.`
+    → Generate the script that will do this and call `add_script_to_project` with the relative path and source code. Make sure to attach the script to the appropriate GameObject.
 
-4. If the user says:
-   `Edit the enemy patrol script to make it more efficient.`
-   → Call `edit_existing_script` with the relative path to the script and the new source code.
+    4. If the user says:
+    `Edit the enemy patrol script to make it more efficient.`
+    → Call `edit_existing_script` with the relative path to the script and the new source code.
 
-### Response Format:
-Respond using structured tool calls when appropriate. Use natural explanations only if the user is asking a question or needs clarification.
+    ### Response Format:
+    Respond using structured tool calls when appropriate. Use natural explanations only if the user is asking a question or needs clarification.
 
-### Assumptions:
-- Unity 6 with Universal Render Pipeline
-- This is Editor code: assume access to `UnityEditor`, `GameObject.Find`, etc and use methods like DestroyImmediate instead of Destroy.
-- Do not use deprecated or obsolete methods like Object.FindObjectsOfType.
-- Users may refer to concepts vaguely (e.g., "make it look spooky") — you can interpret creatively within reason.
+    ### Assumptions:
+    - Unity 6 with Universal Render Pipeline
+    - This is Editor code: assume access to `UnityEditor`, `GameObject.Find`, etc and use methods like DestroyImmediate instead of Destroy.
+    - Do not use deprecated or obsolete methods like Object.FindObjectsOfType.
+    - Users may refer to concepts vaguely (e.g., "make it look spooky") — you can interpret creatively within reason.
 
-Act like a Unity technical artist and engineer rolled into one. Be fast, flexible, and helpful.
+    Act like a Unity technical artist and engineer rolled into one. Be fast, flexible, and helpful.
 
-Eventually, the user will respond with improvements, observations, bugs, or other changes to be made. You should always immediately seek to read and
-understand all the relevant files before diagnosing the problem or proposing a fix, but then implement your fix when you have a solution ready.
+    Eventually, the user will respond with improvements, observations, bugs, or other changes to be made. You should always immediately seek to read and
+    understand all the relevant files before diagnosing the problem or proposing a fix, but then implement your fix when you have a solution ready.
     """
 
 # Main execution

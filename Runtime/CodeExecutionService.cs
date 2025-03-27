@@ -422,6 +422,30 @@ public static class EditorCodeWrapper {
             }
 #endif
         }
+
+        public static string SaveImageToProject(string imageData)
+        {
+            try
+            {
+                // Convert the image data to a byte array
+                byte[] imageBytes = Convert.FromBase64String(imageData);
+
+                // Generate a unique filename
+                string filename = Guid.NewGuid().ToString() + ".png";
+
+                // Save the image to the project in /Assets/GeneratedImages/
+                string directory = Path.Combine(Application.dataPath, "GeneratedImages");
+                if (!Directory.Exists(directory))
+                Directory.CreateDirectory(directory);
+                File.WriteAllBytes(Path.Combine(directory, filename), imageBytes);
+                return "Image saved to project at: " + Path.Combine(directory, filename);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"Error saving image to project: {ex.Message}\n{ex.StackTrace}");
+                return $"Error saving image to project: {ex.Message}\n{ex.StackTrace}";
+            }
+        }
         
         private static string CompileSourceCode(string sourceCode)
         {

@@ -276,6 +276,35 @@ namespace GameGenieUnity
                         await UnityClient.SendRawMessage(errorResponse);
                     }
                     break;
+
+                case "save_image_to_project":
+                    string imageData = json.@params["image"]?.ToString() ?? "";
+                    // Decode the base64 string to binary data.
+                    try
+                    {
+                        string result = GameGenieUnity.CodeExecutionService.SaveImageToProject(imageData);
+                        string response = JsonConvert.SerializeObject(new
+                        {
+                            type = "response",
+                            command = "save_image_to_project",
+                            message_id = messageId,
+                            data = new { success = true, result = result }
+                        });
+                        await UnityClient.SendRawMessage(response);
+                    }
+                    catch (Exception ex)
+                    {
+                        string errorResponse = JsonConvert.SerializeObject(new
+                        {
+                            type = "response",
+                            command = "save_image_to_project",
+                            message_id = messageId,
+                            data = new { success = false, error = ex.Message }
+                        });
+                        Logger.AddToLog("Error saving image to project: " + ex.Message);
+                        await UnityClient.SendRawMessage(errorResponse);
+                    }
+                    break;
             }
         }
     }
