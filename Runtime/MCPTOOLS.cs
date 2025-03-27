@@ -279,10 +279,13 @@ namespace GameGenieUnity
 
                 case "save_image_to_project":
                     string imageData = json.@params["image"]?.ToString() ?? "";
+                    string prompt = json.@params["prompt"]?.ToString() ?? "";
+                    string style = json.@params["style"]?.ToString() ?? "";
+                    string negativePrompt = json.@params["negative_prompt"]?.ToString() ?? "";
                     // Decode the base64 string to binary data.
                     try
                     {
-                        string result = GameGenieUnity.CodeExecutionService.SaveImageToProject(imageData);
+                        string result = GameGenieUnity.CodeExecutionService.SaveImageToProject(imageData, prompt, style, negativePrompt);
                         string response = JsonConvert.SerializeObject(new
                         {
                             type = "response",

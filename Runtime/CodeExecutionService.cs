@@ -6,14 +6,17 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Emit;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
+using System.IO;
+using UnityEngine;
+using Newtonsoft.Json;
 
 #if UNITY_EDITOR
 using UnityEditor;
 using System;
 using System.Reflection;
 using System.CodeDom.Compiler;
-using System.IO;
 using Microsoft.CSharp;
+using UnityEngine;
 #endif
 
 namespace GameGenieUnity
@@ -423,7 +426,7 @@ public static class EditorCodeWrapper {
 #endif
         }
 
-        public static string SaveImageToProject(string imageData)
+        public static string SaveImageToProject(string imageData, string prompt, string style, string negativePrompt)
         {
             try
             {
@@ -433,10 +436,30 @@ public static class EditorCodeWrapper {
                 // Generate a unique filename
                 string filename = Guid.NewGuid().ToString() + ".png";
 
-                // Save the image to the project in /Assets/GeneratedImages/
+                // Get directory
                 string directory = Path.Combine(Application.dataPath, "GeneratedImages");
                 if (!Directory.Exists(directory))
-                Directory.CreateDirectory(directory);
+                    Directory.CreateDirectory(directory);
+
+                var imageMetadata = new
+                {
+                    prompt = prompt,
+                    style = style,
+                    negative_prompt = negativePrompt,
+                    filename = filename
+                };
+
+                // Add imageMetadata to a json file in the project called available_images.json
+                string jsonPath = Path.Combine(directory, "available_images.json");
+                string jsonEntry = JsonConvert.SerializeObject(imageMetadata);
+
+                // Append the JSON entry to the file
+                using (StreamWriter writer = new StreamWriter(jsonPath, true)) // true for append mode
+                {
+                    writer.WriteLine(jsonEntry);
+                }
+
+                // Save the image to the project in /Assets/GeneratedImages/
                 File.WriteAllBytes(Path.Combine(directory, filename), imageBytes);
                 return "Image saved to project at: " + Path.Combine(directory, filename);
             }
