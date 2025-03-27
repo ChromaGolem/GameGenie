@@ -252,9 +252,14 @@ def websocket_info() -> Dict[str, Any]:
         "url": f"ws://{ConnectionEnum.HOST}:{ConnectionEnum.PORT}",
         "connected_clients": len(server.connected_clients)
     }
-
-# tools
     
+########################################################
+# Tools
+########################################################
+
+########################################################
+# Unity Tools
+########################################################
 
 @mcp.tool()
 async def get_scene_context() -> str:
@@ -434,6 +439,41 @@ public static class EditorCodeWrapper {
     except Exception as e:
         logger.error(f"Error executing code: {str(e)}")
         return f"Error executing code: {str(e)}"
+
+########################################################
+# Generative Tools
+########################################################
+
+@mcp.tool()
+async def generate_image(style: str, prompt: str, negative_prompt: str = None) -> str:
+    """
+    Generate an image based on the given prompt.
+
+    Args:
+        style: The style of the image to generate. One of "character_portrait", "skill_icon", or "item_icon"
+        prompt: This is a description of what you want to generate. You can also add your own style tags to the prompt by separating them with commas. (Tip: Always start your prompt with what you want to generate, then add your own style tags. For example, old man blacksmith working at a medieval forge, interior blacksmithery, realistic, fantasy, dark, cinematic.)
+        negative_prompt: This optional parameter is a description of what not to generate. If there are details you don't want to include in your image, you can add them here. (Tip: You can add descriptions of objects, but also styles you don't want to genreate in. For example, apprentice, customers, low-poly.)
+
+    Advice:
+        The better your prompt, the better the output — so here are some tips for constructing a great prompt to generate the highest-quality images for your game:
+
+        Be specific: The more specific your prompt, the better the output. For example, instead of "main character", try "teenage adventurer, young man, blue hair, athletic build, slender, holding a scythe".
+
+    Examples:
+        style: "character_portrait"
+        prompt:"A blacksmith specializing in katanas in feudal japan."
+        negative_prompt: "medieval, european"
+
+
+    Returns:
+        A message indicating the result of the image generation.
+    """
+    logger.info(f"Generating image with style: {style} and prompt: {prompt}...")
+    
+    
+########################################################
+# Prompts
+########################################################
 
 @mcp.prompt()
 def unity_developer_strategy() -> str:
