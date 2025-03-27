@@ -248,7 +248,13 @@ namespace GameGenieUnity
                 // Only add prefabs that have paths starting in the Assets/ folder (ignore built-in prefabs)
                 if (AssetDatabase.GUIDToAssetPath(guids[i]).StartsWith("Assets/"))
                     paths[i] = AssetDatabase.GUIDToAssetPath(guids[i]);
+                else
+                    paths[i] = null;
             }
+
+            // Clear all null values in the paths array
+            paths = paths.Where(x => x != null).ToArray();
+
             return paths;
         }
 
@@ -258,8 +264,16 @@ namespace GameGenieUnity
             var paths = new string[guids.Length];
             for (int i = 0; i < guids.Length; i++)
             {
-                paths[i] = AssetDatabase.GUIDToAssetPath(guids[i]);
+                // Only add scripts that have paths starting in the Assets/ folder (ignore built-in scripts)
+                if (AssetDatabase.GUIDToAssetPath(guids[i]).StartsWith("Assets/"))
+                    paths[i] = AssetDatabase.GUIDToAssetPath(guids[i]);
+                else
+                    paths[i] = null;
             }
+
+            // Clear all null values in the paths array
+            paths = paths.Where(x => x != null).ToArray();
+
             return paths;
         }
     }
