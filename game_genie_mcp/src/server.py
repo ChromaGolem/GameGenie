@@ -320,7 +320,7 @@ async def add_script_to_project(relative_path: str, source_code: str) -> str:
         # Wait for the response
         response = await server.wait_for_response(message_id)
 
-        scripts_reloaded = await server.wait_for_response(SpecialMessages.RELOAD_SCRIPTS)
+        scripts_reloaded = await server.wait_for_response("reload_scripts")
 
         if scripts_reloaded.get("success"):
             logger.info(f"Script added and reloaded successfully: {json.dumps(response.get('data', {}))}")
@@ -356,7 +356,7 @@ async def edit_existing_script(relative_path: str, new_source_code: str) -> str:
         # Wait for the response
         response = await server.wait_for_response(message_id)
 
-        scripts_reloaded = await server.wait_for_response(SpecialMessages.RELOAD_SCRIPTS)
+        scripts_reloaded = await server.wait_for_response("reload_scripts")
 
         if scripts_reloaded.get("success"):
             logger.info(f"Script edited and reloaded successfully: {json.dumps(response.get('data', {}))}")
