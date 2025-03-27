@@ -27,7 +27,7 @@ namespace GameGenieUnity
 
         public static string ReadFile(string relativePath)
         {
-                            // Remove "Assets/" from the relative path (if it's there) and combine with Application.dataPath to get a full path
+            // Remove "Assets/" from the relative path (if it's there) and combine with Application.dataPath to get a full path
             string relativeSubPath = relativePath.StartsWith("Assets/") ? relativePath.Substring("Assets/".Length) : relativePath;
             string fullPath = Path.Combine(Application.dataPath, relativeSubPath);
             string[] contents = File.ReadAllLines(fullPath);
@@ -73,8 +73,8 @@ namespace GameGenieUnity
                 var projectStructure = new
                 {
                     scenes = GetSceneNames() ?? new string[0],
-                    // prefabs = GetPrefabPaths() ?? new string[0],
-                    // scripts = GetScriptPaths() ?? new string[0]
+                    prefabs = GetPrefabPaths() ?? new string[0],
+                    scripts = GetScriptPaths() ?? new string[0]
                 };
 
                 return new
