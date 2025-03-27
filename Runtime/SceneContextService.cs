@@ -245,7 +245,9 @@ namespace GameGenieUnity
             var paths = new string[guids.Length];
             for (int i = 0; i < guids.Length; i++)
             {
-                paths[i] = AssetDatabase.GUIDToAssetPath(guids[i]);
+                // Only add prefabs that have paths starting in the Assets/ folder (ignore built-in prefabs)
+                if (AssetDatabase.GUIDToAssetPath(guids[i]).StartsWith("Assets/"))
+                    paths[i] = AssetDatabase.GUIDToAssetPath(guids[i]);
             }
             return paths;
         }
