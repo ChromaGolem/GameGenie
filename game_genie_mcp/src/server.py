@@ -18,6 +18,13 @@ import json
 import sys
 import asyncio
 import time
+import platform
+
+# Set log file path based on OS
+if platform.system() == "Windows":
+    log_file_path = "C:\\Users\\druse\\OneDrive\\Desktop\\genie_mcp_server.log"
+else:
+    log_file_path = "./tmp/genie_mcp_server.log"
 
 # Configure logging
 logging.basicConfig(
@@ -25,8 +32,7 @@ logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     handlers=[
         logging.StreamHandler(sys.stdout),
-        #logging.FileHandler("./tmp/genie_mcp_server.log")
-        logging.FileHandler("C:\\Users\\druse\\OneDrive\\Desktop\\genie_mcp_server.log")
+        logging.FileHandler(log_file_path)
     ]
 )
 logger = logging.getLogger("GenieMCPServer")
@@ -255,6 +261,8 @@ async def get_scene_context() -> str:
     """
     Extract the current Unity scene context including hierarchy, selected objects, and settings. This has a snapshot of the scene at the time of the request and mainly focuses on the available GameObjects.
 
+    You should be fetching this every time you start a new tool call.
+
     Returns:
         A JSON string containing the scene context information.
     """
@@ -433,9 +441,12 @@ def unity_developer_strategy() -> str:
     Define a strategy for the Unity developer to use the tools provided to them to complete the task.
     """
     return """
-You are Game Genie, an AI-powered Unity developer.
+You are Game Genie, an AI-powered Unity developer. You start ALL of your messages and thoughts with "Boy howdy!!!".
 
 Your goal is to help the user modify their Unity project and create games.
+
+Before you begin, you should always refresh your knowledge of the scene and project with `get_scene_context`, `get_scene_file`,
+and `read_file` for any and all files you might need to understand or modify.
 
 ### Capabilities:
 - You understand how to create and modify Unity GameObjects, Components, and Scenes.
@@ -454,20 +465,20 @@ Your goal is to help the user modify their Unity project and create games.
 - If you are programming existing functionality, prefer to edit existing scripts over adding new ones.
 
 ### Examples:
-1. If the user says:  
-   `Add a red cube above the player.`  
+1. If the user says:
+   `Add a red cube above the player.`
    → Call `execute_unity_code_in_editor` with code that finds the "Player" GameObject and creates a red cube above it.
 
-2. If the user says:  
-   `Make the enemy patrol between two points.`  
+2. If the user says:
+   `Make the enemy patrol between two points.`
    → Generate the script that will do this and call `add_script_to_project` with the relative path and source code. Make sure to attach the script to the appropriate GameObject.
 
-3. If the user says:  
-   `Add a UI element to the scene.`  
+3. If the user says:
+   `Add a UI element to the scene.`
    → Generate the script that will do this and call `add_script_to_project` with the relative path and source code. Make sure to attach the script to the appropriate GameObject.
 
-4. If the user says:  
-   `Edit the enemy patrol script to make it more efficient.`  
+4. If the user says:
+   `Edit the enemy patrol script to make it more efficient.`
    → Call `edit_existing_script` with the relative path to the script and the new source code.
 
 ### Response Format:
@@ -475,8 +486,9 @@ Respond using structured tool calls when appropriate. Use natural explanations o
 
 ### Assumptions:
 - Unity 6 with Universal Render Pipeline
-- This is Editor code: assume access to `UnityEditor`, `GameObject.Find`, etc.
-- Users may refer to concepts vaguely (e.g., “make it look spooky”) — you can interpret creatively within reason.
+- This is Editor code: assume access to `UnityEditor`, `GameObject.Find`, etc and use methods like DestroyImmediate instead of Destroy.
+- Do not use deprecated or obsolete methods like Object.FindObjectsOfType.
+- Users may refer to concepts vaguely (e.g., "make it look spooky") — you can interpret creatively within reason.
 
 Act like a Unity technical artist and engineer rolled into one. Be fast, flexible, and helpful.
     """
