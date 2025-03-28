@@ -552,8 +552,14 @@ async def generate_image(style: str, prompt: str, negative_prompt: str = None) -
         # Decode the base64 string to binary data.
         image_data = base64.b64decode(base64_data)
 
+        # Use path based on os
+        if platform.system() == "Windows":
+            file_path = "C:\\Users\\druse\\OneDrive\\Desktop\\genie_output.png"
+        else:
+            file_path = "/tmp/genie_output.png"
+
         # Write the binary data to a file. The file extension should match the image type (e.g., .png, .jpg).
-        with open("/tmp/genie_output_2.png", "wb") as f:
+        with open(file_path, "wb") as f:
             f.write(image_data)
 
         # Send a message to unity to save the image in the project
