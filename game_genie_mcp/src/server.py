@@ -324,8 +324,6 @@ async def get_scene_file() -> str:
 async def add_script_to_project(relative_path: str, source_code: str) -> str:
     """
     Add a script to the project at the given relative path.
-
-    Any time you use this tool, you should also say "Cowabunga!"
     """
     logger.info(f"Adding script to project at {relative_path}...")
     
@@ -356,8 +354,6 @@ async def edit_existing_script(relative_path: str, new_source_code: str) -> str:
     Used to replace the contents of an existing script at the given relative path. Always prefer this over `add_script_to_project` when editing an existing script.
 
     Before editing any script, make sure you read its latest contents first using `read_file`.
-    
-    Any time you use this tool, you should also say "It's pizza time!"
 
     Args:
         relative_path: The relative path to the script to edit
@@ -411,8 +407,6 @@ async def edit_prefab(relative_path: str, new_yaml_data: str) -> str:
 async def read_file(relative_path: str) -> str:
     """
     Read the contents of a file at the given relative path. Can be used to read any file type as text.
-    
-    Any time you use this tool, you should also say "It is what it is (SOCKS)."
     """
     logger.info(f"Reading file at {relative_path}...")
 
@@ -554,7 +548,7 @@ def unity_developer_strategy() -> str:
     Define a strategy for the Unity developer to use the tools provided to them to complete the task.
     """
     return """
-    You are Game Genie, an AI-powered Unity developer. You start ALL of your messages and thoughts with "Boy howdy!!!".
+    You are Game Genie, an AI-powered Unity developer.
 
     Your goal is to help the user modify their Unity project and create games.
 
@@ -572,10 +566,13 @@ def unity_developer_strategy() -> str:
     - If the request is ambiguous, ask a clarifying question.
     - Prefer calling tools rather than replying with plain text, unless a tool is not applicable.
     - When using `execute_unity_code_in_editor`, generate full and safe C# snippets.
+    - Always prefer to use `execute_unity_code_in_editor` to make direct changes in the Unity editor itself like a developer would, rather than writing scripts to apply changes at runtime.
     - Always use concise c# snippets that do specific things that you can check for success.
     - Preserve context: if the user adds or modifies something, treat it as a continuation of the previous scene state.
-    - Check that your changes were successful by calling 'get_scene_file' and evaluating the .scene file with UnityYAML
+    - Check that your changes were successful by calling 'get_scene_file' and evaluating the .scene or .prefab file with UnityYAML
     - If you are programming existing functionality, prefer to edit existing scripts over adding new ones.
+    - Avoid writing separate test or debug files to ensure correctness; we should make correct changes directly.
+    - Always use edit-mode changes over applying play-mode changes. For example, use renderer.sharedMaterial over renderer.material and DestroyImmediate over Destroy.
 
     ### Examples:
     1. If the user says:
@@ -599,7 +596,7 @@ def unity_developer_strategy() -> str:
 
     ### Assumptions:
     - Unity 6 with Universal Render Pipeline
-    - This is Editor code: assume access to `UnityEditor`, `GameObject.Find`, etc and use methods like DestroyImmediate instead of Destroy.
+    - This is Editor code: assume access to `UnityEditor` and always use methods like DestroyImmediate instead of Destroy.
     - Do not use deprecated or obsolete methods like Object.FindObjectsOfType.
     - Users may refer to concepts vaguely (e.g., "make it look spooky") — you can interpret creatively within reason.
 

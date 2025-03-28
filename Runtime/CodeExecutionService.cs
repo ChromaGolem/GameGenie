@@ -99,8 +99,8 @@ public static class EditorCodeWrapper {
             requiredAssemblies.Add(Assembly.GetExecutingAssembly()); // Current assembly
             requiredAssemblies.Add(typeof(System.Linq.Enumerable).Assembly); // Linq
 
-            // Add Assembly-CSharp and Assembly-CSharp-Editor
-            var assemblyCSharp = AppDomain.CurrentDomain.GetAssemblies()
+                // Add Assembly-CSharp and Assembly-CSharp-Editor
+                var assemblyCSharp = AppDomain.CurrentDomain.GetAssemblies()
                     .FirstOrDefault(a => a.GetName().Name == "Assembly-CSharp");
             if (assemblyCSharp != null)
             {
@@ -367,6 +367,7 @@ public static class EditorCodeWrapper {
                     Directory.CreateDirectory(directory);
 
                 // Write the file content to the file
+                Debug.Log("Writing to " + fullPath);
                 File.WriteAllText(fullPath, fileContent);
 
                 // Finally, import the new asset into Unity
