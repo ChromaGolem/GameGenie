@@ -268,6 +268,35 @@ def websocket_info() -> Dict[str, Any]:
 # Tools
 ########################################################
 
+@mcp.tool()
+async def execute_terminal_command(command: str) -> str:
+    """
+    Execute a terminal command on the local machine and return the output.
+
+    This is useful for moving files around, creating directories, renaming files, and other tasks that would be quicker than executing commands
+    as C# within the Unity context.
+
+    Args:
+        command: The command to execute in the terminal.
+    Returns:
+        A string with the output of the command or an error message if execution fails.
+    """
+    logger.info(f"Executing terminal command: {command}")
+    try:
+        # Run the command using subprocess
+        result = subprocess.run(command, shell=True, capture_output=True, text=True)
+        
+        if result.returncode == 0:
+            logger.info(f"Command output: {result.stdout.strip()}")
+            return result.stdout.strip()
+        else:
+            logger.error(f"Command error: {result.stderr.strip()}")
+            return f"Error: {result.stderr.strip()}"
+    
+    except Exception as e:
+        logger.error(f"Error executing command: {str(e)}")
+        return f"Error executing command: {str(e)}"
+
 ########################################################
 # Unity Tools
 ########################################################
@@ -537,7 +566,7 @@ async def generate_image(style: str, prompt: str, negative_prompt: str = None) -
     except Exception as e:
         logger.error(f"Error generating image: {str(e)}")
         return f"Error generating image: {str(e)}"
-    
+
 ########################################################
 # Prompts
 ########################################################
