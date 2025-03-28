@@ -64,7 +64,16 @@ namespace GameGenieUnity
         // Wrap the provided snippet in a minimal boilerplate class.
         string wrappedSourceCode = @"
 using UnityEngine;
+using UnityEngine.UI;
 using UnityEditor;
+using System;
+using System.Collections.Generic;
+using System.Net.WebSockets;
+using System.Collections.Concurrent;
+using System.Text;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 public static class EditorCodeWrapper {
     public static void Execute() {
 " + sourceCode + @"
