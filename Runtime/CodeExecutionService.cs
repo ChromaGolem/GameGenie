@@ -101,10 +101,12 @@ public static class EditorCodeWrapper {
             requiredAssemblies.Add(typeof(UnityEngine.UI.Button).Assembly); // UnityEngine.UI
             requiredAssemblies.Add(Assembly.GetExecutingAssembly()); // Current assembly
             requiredAssemblies.Add(typeof(System.Linq.Enumerable).Assembly); // Linq
+            requiredAssemblies.Add(typeof(System.IO.File).Assembly); // System.IO for file operations
+            requiredAssemblies.Add(typeof(System.Collections.Generic.List<>).Assembly); // System.Collections.Generic
 
-                // Add Assembly-CSharp and Assembly-CSharp-Editor
-                var assemblyCSharp = AppDomain.CurrentDomain.GetAssemblies()
-                    .FirstOrDefault(a => a.GetName().Name == "Assembly-CSharp");
+            // Add Assembly-CSharp and Assembly-CSharp-Editor
+            var assemblyCSharp = AppDomain.CurrentDomain.GetAssemblies()
+                .FirstOrDefault(a => a.GetName().Name == "Assembly-CSharp");
             if (assemblyCSharp != null)
             {
                 requiredAssemblies.Add(assemblyCSharp);
