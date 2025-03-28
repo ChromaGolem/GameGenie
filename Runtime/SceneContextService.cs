@@ -50,7 +50,7 @@ namespace GameGenieUnity
                     {
                         if (obj != null && !string.IsNullOrEmpty(obj.name))
                         {
-                            activeGameObjects.Add(obj.name);
+                            activeGameObjects.Add(GetGameObjectPath(obj));
                         }
                     }
                 }
@@ -62,7 +62,7 @@ namespace GameGenieUnity
                     {
                         if (obj != null && !string.IsNullOrEmpty(obj.name))
                         {
-                            selectedObjects.Add(obj.name);
+                            selectedObjects.Add(GetGameObjectPath(obj));
                         }
                     }
                 }
@@ -216,6 +216,21 @@ namespace GameGenieUnity
                 Logger.AddToLog($"[UnityMCP] Failed to get component names for {(obj != null ? obj.name : "null")}: {e.Message}");
                 return new string[0];
             }
+        }
+
+        // Helper method to construct the full hierarchy path for a GameObject.
+        private static string GetGameObjectPath(GameObject obj)
+        {
+            if (obj == null) return string.Empty;
+    
+            string path = obj.name;
+            Transform current = obj.transform;
+            while (current.parent != null)
+            {
+                current = current.parent;
+                path = current.name + "/" + path;
+            }
+            return path;
         }
 
         private static object GetProjectStructure()
