@@ -528,7 +528,7 @@ async def generate_image(style: str, prompt: str, negative_prompt: str = None) -
             f.write(image_data)
 
         # Send a message to unity to save the image in the project
-        message_id = await server.send_command_to_unity(UnityTools.SAVE_IMAGE, {"image": base64_data})
+        message_id = await server.send_command_to_unity(UnityTools.SAVE_IMAGE, {"image": base64_data, "prompt": prompt, "style": style, "negative_prompt": negative_prompt})
 
         # Wait for the response
         unity_response = await server.wait_for_response(message_id)
